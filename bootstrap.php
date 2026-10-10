@@ -31,6 +31,25 @@ function current_user(): ?array {
 function sign_in(array $user): void {session_regenerate_id(true);$_SESSION['user_id']=$user['id'];$_SESSION['expires']=time()+86400;}
 function respond(int $status, array $data): never {http_response_code($status);header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');echo json_encode($data,JSON_UNESCAPED_SLASHES);exit;}
 function require_admin(?array $u): void {if (($u['role']??'')!=='admin') respond(403,['error'=>'Admin access required.']);}
+function upgrade_sample_content(): void {
+    $fixtures=require __DIR__.'/setup-data.php';
+    $legacy=array_column($fixtures['legacy']??[],null,'id');
+    foreach($fixtures['courses'] as $sample) {
+        $original=$legacy[$sample['id']]??null;
+        if(!$original)continue;
+        $row=query('SELECT payload FROM academy_courses WHERE id=?',[$sample['id']])->fetch();
+        if(!$row)continue;
+        $c=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);$changed=false;
+        // Only replace untouched sample fields. Keep administrator edits and live records.
+        if(($c['lessons']??[])==$original['lessons']) {
+            $c['lessons']=$sample['lessons'];$c['preview']=$sample['preview'];$c['sample']=true;$changed=true;
+            if(($c['duration']??'')===$original['duration'])$c['duration']=$sample['duration'];
+        }
+        if(($c['exam']??[])==$original['exam']) {$c['exam']=$sample['exam'];$changed=true;}
+        if(($c['color']??'')===$original['color']){$c['color']=$sample['color'];$changed=true;}
+        if($changed)query('UPDATE academy_courses SET payload=? WHERE id=? AND BINARY payload=BINARY ?',[json_encode($c,JSON_THROW_ON_ERROR),$sample['id'],$row['payload']]);
+    }
+}
 function validate_course(array $c): array {
     foreach (['title','instructor','description','duration','category','level'] as $key) if (!is_string($c[$key]??null)||!trim($c[$key])) respond(400,['error'=>'Complete the course details.']);
     if (!isset($c['price'])||!is_numeric($c['price'])||(float)$c['price']<0) respond(400,['error'=>'Enter a valid price.']);
@@ -45,7 +64,8 @@ function validate_course(array $c): array {
         foreach($q['options'] as $option) if(!is_string($option)||!trim($option)) respond(400,['error'=>'Complete every answer option.']);
     }
     $c['id']=$c['id']??uuid();if(!preg_match('/^[a-zA-Z0-9-]{1,64}$/',$c['id'])) respond(400,['error'=>'Invalid course ID.']);
-    $c['price']=(float)$c['price'];$c['color']='#e9e9e6';
+    $c['price']=(float)$c['price'];
+    $c['color']=match($c['category']){'Design'=>'#e6f5fb','Technology'=>'#eaf0fb','Business'=>'#fff3dc',default=>'#f0effb'};
     $c['art']=in_array($c['art']??'', ['design','code','business','photo'],true)?$c['art']:'design';
     return $c;
 }

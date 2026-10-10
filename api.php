@@ -18,12 +18,16 @@ try {
         if($path==='api/me'&&$method==='GET')respond(200,['user'=>null]);
         if($path==='api/courses'&&$method==='GET') {
             $fixtures=require __DIR__.'/setup-data.php';
-            $preview=array_map(function($c){$c['lessons']=array_map(fn($l)=>['title'=>$l['title']],$c['lessons']);$c['exam']=array_map(function($q){unset($q['answer']);return $q;},$c['exam']);return $c;},$fixtures['courses']);
+            $preview=array_map(function($c){$c['lessons']=array_map(fn($l)=>['title'=>$l['title']],$c['lessons']);$c['exam']=array_map(function($q){unset($q['answer'],$q['explanation']);return $q;},$c['exam']);return $c;},$fixtures['courses']);
             respond(200,['courses'=>$preview]);
         }
         respond(503,['error'=>'The storefront is in preview mode. Complete the database installation to enable accounts and enrollment.']);
     }
     $u=current_user();
+    if($method==='GET'&&in_array($path,['api/courses','api/admin/courses'],true)) {
+        if($path==='api/admin/courses')require_admin($u);
+        upgrade_sample_content();
+    }
     if($path==='api/me'&&$method==='GET')respond(200,['user'=>$u]);
     if($path==='api/signup'&&$method==='POST') {
         $name=trim((string)($body['name']??''));$email=strtolower(trim((string)($body['email']??'')));$password=(string)($body['password']??'');
@@ -48,7 +52,7 @@ try {
         foreach(query('SELECT payload FROM academy_courses ORDER BY created_at,id')->fetchAll() as $row) {
             $c=json_decode($row['payload'],true);$access=$u&&($u['role']==='admin'||in_array($c['id'],$u['enrolled'],true));
             if(!$access)$c['lessons']=array_map(fn($l)=>['title'=>$l['title']],$c['lessons']);
-            $c['exam']=array_map(function($q){unset($q['answer']);return $q;},$c['exam']);$courses[]=$c;
+            $c['exam']=array_map(function($q){unset($q['answer'],$q['explanation']);return $q;},$c['exam']);$courses[]=$c;
         }respond(200,['courses'=>$courses]);
     }
     if($path==='api/admin/courses') {
@@ -69,8 +73,15 @@ try {
         if(!$u||($u['role']!=='admin'&&!in_array($id,$u['enrolled'],true)))respond(403,['error'=>'Enroll to take this exam.']);
         $row=query('SELECT payload FROM academy_courses WHERE id=?',[$id])->fetch();$c=$row?json_decode($row['payload'],true):null;
         if(!$c||!count($c['exam']))respond(400,['error'=>'No exam available.']);
-        $score=0;foreach($c['exam'] as $i=>$q)if(isset($body['answers'][$i])&&is_int($body['answers'][$i])&&$body['answers'][$i]===$q['answer'])$score++;
-        query('INSERT INTO academy_exam_attempts(user_id,course_id,score,total) VALUES(?,?,?,?)',[$u['id'],$id,$score,count($c['exam'])]);respond(200,['score'=>$score,'total'=>count($c['exam'])]);
+        if(!is_array($body['answers']??null)||count($body['answers'])!==count($c['exam']))respond(400,['error'=>'Answer every question before submitting.']);
+        $score=0;$review=[];
+        foreach($c['exam'] as $i=>$q) {
+            $answer=$body['answers'][$i]??null;
+            if(!is_int($answer)||$answer<0||$answer>=count($q['options']))respond(400,['error'=>'Choose a valid answer for every question.']);
+            $correct=$answer===$q['answer'];if($correct)$score++;
+            $review[]=['correct'=>$correct,'answer'=>$q['options'][$q['answer']],'explanation'=>$q['explanation']??''];
+        }
+        query('INSERT INTO academy_exam_attempts(user_id,course_id,score,total) VALUES(?,?,?,?)',[$u['id'],$id,$score,count($c['exam'])]);respond(200,['score'=>$score,'total'=>count($c['exam']),'review'=>$review]);
     }
     respond(404,['error'=>'Not found.']);
 } catch(JsonException $e) {respond(400,['error'=>'Invalid JSON request.']);}
