@@ -19,3 +19,5 @@ Files are prepared for deployment; this does not mean they are uploaded or live 
 ## Git deployment
 
 Select branch `hostinger` and keep destination `public_html` in Hostinger. The deployment branch contains only the PHP website at its root. It never includes database credentials or live user data. After deployment, use File Manager to create the private config.php above public_html, then visit /install.php. If Hostinger left its placeholder index.php or default.php in public_html, remove only that known placeholder so index.html is displayed.
+
+Prices are denominated in Saudi riyals (SAR). The academy logo is provided as a vector asset. Before database configuration exists, the storefront shows sample courses while account operations remain disabled; /install.php provides the configuration steps.
