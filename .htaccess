@@ -1,0 +1,11 @@
+Options -Indexes
+DirectoryIndex index.html
+RewriteEngine On
+RewriteRule ^api/.*$ api.php [L,QSA]
+<FilesMatch "^(config|seed).*\.(php|json)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(bootstrap|setup-data)\.php$">
+    Require all denied
+</FilesMatch>
