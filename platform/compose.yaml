@@ -1,0 +1,22 @@
+# Local PostgreSQL only. This configuration is not a production database deployment.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: academy
+      POSTGRES_USER: academy
+      POSTGRES_PASSWORD: dev-only-academy
+    ports:
+      - "127.0.0.1:5560:5432"
+    volumes:
+      - academy_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U academy -d academy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  academy_pg:
