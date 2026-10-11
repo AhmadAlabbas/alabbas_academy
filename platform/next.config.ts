@@ -6,6 +6,10 @@ const config: NextConfig = {
   outputFileTracingRoot: applicationRoot,
   turbopack: { root: applicationRoot },
   output: "standalone",
+  // PDFKit resolves its standard fonts relative to its own package at runtime.
+  // Bundling its ESM entry bakes in the build machine's import.meta.url, which
+  // is unavailable after moving standalone output to Hostinger.
+  serverExternalPackages: ["pdfkit"],
   outputFileTracingExcludes: {
     "*": [".env*", ".local/**", "docs/archive/**", "tests/**"],
   },
@@ -16,6 +20,7 @@ const config: NextConfig = {
     "/api/certificates/*": [
       "./node_modules/@fontsource/ibm-plex-sans-arabic/files/*400-normal.woff",
       "./node_modules/pdfkit/js/data/**",
+      "./node_modules/pdfkit/js/standard-fonts/*.cjs",
       "./node_modules/@fontsource/ibm-plex-sans-arabic/files/*600-normal.woff",
     ],
   },
