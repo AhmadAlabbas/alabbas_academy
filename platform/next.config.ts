@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
+import {isStaging} from "./src/lib/deployment";
 const applicationRoot = fileURLToPath(new URL(".", import.meta.url));
 const config: NextConfig = {
   outputFileTracingRoot: applicationRoot,
@@ -40,6 +41,7 @@ const config: NextConfig = {
       {
         source: "/(.*)",
         headers: [
+          ...(isStaging() ? [{key: "X-Robots-Tag", value: "noindex, nofollow, noarchive"}] : []),
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },

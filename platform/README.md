@@ -134,6 +134,8 @@ The package command writes `.local/hostinger-package` with standalone runtime, s
 
 ## Release checks and dependency decisions
 
+See [RELEASE_WORKFLOW.md](docs/RELEASE_WORKFLOW.md) for automated GitHub checks, separate staging setup, release promotion, customer acceptance tests, backups and rollback. `npm run check:deployment -- --url https://alabbasacademy.com --environment production --require-email` performs read-only public release checks. Hostinger branch protection, staging deployment and monitoring are account settings; committing the workflow does not configure them.
+
 See [HOSTINGER_VALIDATION.md](docs/HOSTINGER_VALIDATION.md) for the full requirement checklist, actual test counts, runtime package checks and external launch prerequisites. Production audit reports zero findings. Patched Nodemailer/MariaDB/MySQL2/deepmerge versions are pinned with targeted overrides; Auth.js's optional email peer range still names older Nodemailer versions, while this application uses its own tested SMTP delivery rather than Auth.js email-provider delivery. Credentials/Google ownership and database tests pass with the patched dependency set. Five remaining development-only audit findings are the unpatched ESLint braces chain; they are excluded from the standalone runtime. Do not run `npm audit fix --force` to downgrade the framework.
 
 Local mobile Lighthouse measured 92 performance, 100 accessibility and 100 best practices. The final customer host still needs its own performance/SEO report; 95+ performance is a target, not a verified claim.

@@ -1,0 +1,120 @@
+name: Platform checks
+
+on:
+  push:
+    branches: [platform, staging]
+    paths: ["platform/**", ".github/workflows/platform-checks.yml", "package*.json", "server.js"]
+  pull_request:
+    branches: [platform, staging]
+    paths: ["platform/**", ".github/workflows/platform-checks.yml", "package*.json", "server.js"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Release validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: platform
+    services:
+      database:
+        image: mariadb:11.4
+        env:
+          # Disposable runner credentials only; never connect customer databases.
+          MARIADB_ROOT_PASSWORD: academy-ci-only
+          MARIADB_ROOT_HOST: "%"
+          MARIADB_DATABASE: academy_ci
+        ports: ["3306/tcp"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      CI: "true"
+      AUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      PAYMENTS_ENABLED: "false"
+      SEED_ADMIN_EMAIL: administrator@example.test
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up the Hostinger Node version
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22.18.0"
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+      - name: Create disposable test secrets
+        env:
+          DATABASE_PORT: ${{ job.services.database.ports['3306'] }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {randomBytes} from 'node:crypto';
+          import {appendFileSync} from 'node:fs';
+          for (const name of ['AUTH_SECRET', 'SEED_ADMIN_PASSWORD']) {
+            const value = randomBytes(48).toString('base64url');
+            console.log('::add-mask::' + value);
+            appendFileSync(process.env.GITHUB_ENV, name + '=' + value + '\n');
+          }
+          for (const [name, value] of Object.entries({
+            DATABASE_URL: 'mysql://root:academy-ci-only@127.0.0.1:' + process.env.DATABASE_PORT + '/academy_ci',
+            ACADEMY_TEST_DATABASE_URL: 'mysql://root:academy-ci-only@127.0.0.1:' + process.env.DATABASE_PORT + '/academy_ci',
+            ACADEMY_PLAYWRIGHT_MODULE: process.env.RUNNER_TEMP + '/academy-browser/node_modules/playwright',
+            ACADEMY_UI_ARTIFACT_DIR: process.env.RUNNER_TEMP + '/academy-ui-artifacts',
+          })) appendFileSync(process.env.GITHUB_ENV, name + '=' + value + '\n');
+          NODE
+      - name: Install locked application dependencies
+        run: npm ci
+      - name: Generate database client
+        run: npm run db:generate
+      - name: Lint and unit tests
+        run: |
+          npm run lint
+          npm test
+      - name: Isolated database integration tests
+        run: npm run test:database
+      - name: Prepare disposable preview database
+        run: |
+          npm run db:deploy
+          npm run db:seed
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+      - name: Build and type check production
+        run: |
+          npm run build
+          npm run typecheck
+      - name: Test Hostinger startup and relocated certificates
+        run: |
+          npm run test:hostinger
+          npm run test:certificates
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/academy-browser" --no-save --package-lock=false playwright@1.62.1
+          node "$ACADEMY_PLAYWRIGHT_MODULE/cli.js" install --with-deps chromium
+      - name: Test production pages and mobile navigation
+        run: npm run test:browser
+      - name: Build and check staging search isolation
+        env:
+          ACADEMY_ENVIRONMENT: staging
+        run: |
+          npm run build
+          npm run test:browser
+      - name: Save browser screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platform-browser-screenshots
+          path: ${{ runner.temp }}/academy-ui-artifacts
+          if-no-files-found: ignore
+          retention-days: 7

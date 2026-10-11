@@ -118,8 +118,10 @@ describe.skipIf(!testUrl)("MariaDB account email request delivery", () => {
         throw new Error("intentional account rollback");
       }),
     ).rejects.toThrow("intentional account rollback");
-    expect(await database.emailVerificationToken.count()).toBe(0);
-    expect(await database.backgroundJob.count()).toBe(0);
+    expect(await database.emailVerificationToken.count({where: {userId: user.id}})).toBe(0);
+    // Other suites can leave receipt/contact notifications in this shared test
+    // database. Only the account queue participates in this transaction.
+    expect(await database.backgroundJob.count({where: {kind: 'ACCOUNT_EMAIL'}})).toBe(0);
   });
 
   it("deduplicates repeated enqueue and copies the token's exact expiry", async () => {
@@ -129,7 +131,7 @@ describe.skipIf(!testUrl)("MariaDB account email request delivery", () => {
         enqueueAccountEmail(transaction, value.input),
       ),
     ).toBe(value.jobId);
-    expect(await database.backgroundJob.count()).toBe(1);
+    expect(await database.backgroundJob.count({where: {kind: 'ACCOUNT_EMAIL'}})).toBe(1);
     const token = await database.emailVerificationToken.findUniqueOrThrow({
       where: { tokenHash: value.tokenHash },
     });

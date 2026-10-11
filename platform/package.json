@@ -16,6 +16,8 @@
     "test:hostinger": "node --test scripts/test-hostinger-startup.mjs",
     "test:certificates": "node scripts/test-certificate-download.mjs",
     "test:theme-navigation": "node scripts/test-theme-navigation.mjs",
+    "test:browser": "node scripts/test-browser-preview.mjs",
+    "check:deployment": "node scripts/check-deployment.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:deploy": "prisma migrate deploy",
