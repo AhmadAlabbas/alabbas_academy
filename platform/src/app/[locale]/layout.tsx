@@ -4,7 +4,7 @@ import {getMessages, getTranslations, setRequestLocale} from 'next-intl/server';
 import {notFound} from 'next/navigation';
 import {SiteFooter} from '@/components/layout/site-footer';
 import {SiteHeader} from '@/components/layout/site-header';
-import {siteOrigin} from '@/lib/seo';
+import {siteOrigin, siteIcons} from '@/lib/seo';
 import {publicCatalog,siteSettings} from '@/lib/public-data';
 import {routing} from '@/i18n/routing';
 import {arabicFont, latinFont} from '@/lib/fonts';
@@ -31,6 +31,7 @@ export async function generateMetadata({params}: Omit<LocaleLayoutProps, 'childr
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'),
     title: {default:academy,template:`%s | ${academy}`},
     description,
+    icons: siteIcons,
     openGraph: {
       siteName:academy,
       locale: locale === 'ar' ? 'ar_SA' : 'en_US',

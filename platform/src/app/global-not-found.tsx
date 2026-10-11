@@ -6,7 +6,7 @@ import {getTranslations} from 'next-intl/server';
 import {headers} from 'next/headers';
 import {routing} from '@/i18n/routing';
 import {arabicFont, latinFont} from '@/lib/fonts';
-import {siteOrigin} from '@/lib/seo';
+import {siteOrigin, siteIcons} from '@/lib/seo';
 import './globals.css';
 
 async function getNotFoundLocale() {
@@ -24,6 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(siteOrigin),
     title: `${t('title')} | ${common('academy')}`,
     description: t('description'),
+    icons: siteIcons,
     robots: {index: false, follow: false},
   };
 }
