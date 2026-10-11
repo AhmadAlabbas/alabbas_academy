@@ -25,7 +25,7 @@ export function LanguageSwitcher({courseSlugs}: LanguageSwitcherProps) {
       const currentSlug = decodeURIComponent(pathname.slice('/courses/'.length));
       const courseSlug = courseSlugs.find((item) => item[locale] === currentSlug);
       nextPath = courseSlug ? `/courses/${courseSlug[nextLocale]}` : '/';
-    } else if (!['/', '/courses', '/about'].includes(pathname)) {
+    } else if (!['/', '/courses', '/about', '/cart', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/account'].includes(pathname)) {
       nextPath = '/';
     }
 

@@ -3,7 +3,7 @@ import {siteOrigin} from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {userAgent: '*', allow: '/', disallow: ['/api/', '/ar/admin', '/en/admin', '/ar/account', '/en/account', '/ar/cart', '/en/cart', '/ar/checkout', '/en/checkout']},
+    rules: {userAgent: '*', allow: '/', disallow: ['/api/', ...['ar', 'en'].flatMap(locale => ['admin', 'account', 'cart', 'checkout', 'login', 'signup', 'forgot-password', 'reset-password', 'verify-email'].map(path => `/${locale}/${path}`))]},
     sitemap: `${siteOrigin}/sitemap.xml`,
   };
 }

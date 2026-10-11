@@ -23,6 +23,8 @@ export async function SiteFooter() {
             <li><Link href="/" className="hover:text-[var(--navy)]">{t('home')}</Link></li>
             <li><Link href="/courses" className="hover:text-[var(--navy)]">{t('courses')}</Link></li>
             <li><Link href="/about" className="hover:text-[var(--navy)]">{t('about')}</Link></li>
+            <li><Link href="/login" className="hover:text-[var(--navy)]">{t('login')}</Link></li>
+            <li><Link href="/signup" className="hover:text-[var(--navy)]">{t('signup')}</Link></li>
           </ul>
         </nav>
 

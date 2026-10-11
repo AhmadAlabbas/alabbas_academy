@@ -256,6 +256,18 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+// HMAC keys avoid persisting email addresses or source IPs in throttle storage.
+// Counter increments and expired-window resets are atomic PostgreSQL upserts.
+model AuthRateLimit {
+  key       String   @id @db.Char(64)
+  attempts  Int      @default(1)
+  expiresAt DateTime
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([expiresAt])
+  @@map("auth_rate_limits")
+}
+
 model Category {
   id           String   @id @default(cuid())
   key          String   @unique

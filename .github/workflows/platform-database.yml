@@ -1,0 +1,55 @@
+name: Platform database release
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_demo:
+        description: Add demonstration courses (fresh databases only)
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-database-release
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    # The PHP/Hostinger branch must never release the platform database.
+    if: github.ref == 'refs/heads/platform'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - name: Check out the selected platform release
+        uses: actions/checkout@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Apply committed migrations
+        env:
+          # Use the direct/unpooled connection; never echo this variable.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Add the private DATABASE_URL repository secret before releasing the database." >&2
+            exit 1
+          fi
+          npm run db:deploy
+      - name: Add demonstration courses
+        if: inputs.seed_demo
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:seed

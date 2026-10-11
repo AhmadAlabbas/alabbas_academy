@@ -7,6 +7,8 @@ import {useEffect, useRef, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
 import type {Locale} from '@/i18n/routing';
 import {LanguageSwitcher} from './language-switcher';
+import {AccountNavigation} from './account-navigation';
+import {CartLinkBadge} from '@/components/cart/cart-controls';
 
 const routes = [
   {href: '/', label: 'home'},
@@ -44,7 +46,7 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
       }
     }
 
-    const desktop = window.matchMedia('(min-width: 768px)');
+    const desktop = window.matchMedia('(min-width: 1024px)');
     function onScreenChange(event: MediaQueryListEvent) {
       if (event.matches) setIsOpen(false);
     }
@@ -67,14 +69,14 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
     <header className="relative z-40 border-b border-[var(--line)] bg-white/95">
       <div className="container-shell flex min-h-24 items-center justify-between gap-4 py-3">
         <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={t('academy')}>
-          <Image src="/logo.svg" width={330} height={425} alt="" preload className="h-auto w-10 shrink-0 object-contain" />
-          <span className="min-w-0">
+          <Image src="/logo.svg" width={330} height={425} alt="" preload className="h-auto w-8 shrink-0 object-contain sm:w-10" />
+          <span className="hidden min-w-0 min-[440px]:block">
             <span className="block text-base font-bold tracking-tight text-[var(--navy)] sm:text-lg">{t('academy')}</span>
             <span className="mt-0.5 hidden text-xs text-[var(--muted)] sm:block">{t('tagline')}</span>
           </span>
         </Link>
 
-        <nav aria-label={t('navigation')} className="hidden items-center gap-7 md:flex">
+        <nav aria-label={t('navigation')} className="hidden items-center gap-6 lg:flex">
           {routes.map((route) => (
             <Link
               key={route.href}
@@ -89,7 +91,8 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <LanguageSwitcher courseSlugs={courseSlugs} />
-          <Link href="/courses" className="button-primary hidden min-h-11 text-sm lg:inline-flex">{t('browseCourses')}</Link>
+          <CartLinkBadge />
+          <AccountNavigation />
           <button
             ref={toggleRef}
             type="button"
@@ -97,7 +100,7 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
             aria-expanded={isOpen}
             aria-label={t(isOpen ? 'closeMenu' : 'openMenu')}
             onClick={() => setIsOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] text-[var(--navy)] md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] text-[var(--navy)] lg:hidden"
           >
             {isOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
@@ -108,7 +111,7 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
         <div
           id="mobile-navigation"
           ref={menuRef}
-          className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-white shadow-lg md:hidden"
+          className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-white shadow-lg lg:hidden"
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget) && !toggleRef.current?.contains(event.relatedTarget)) {
               setIsOpen(false);
@@ -127,7 +130,8 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
                 {t(route.label)}
               </Link>
             ))}
-            <Link href="/courses" onClick={() => setIsOpen(false)} className="button-primary mt-3">{t('browseCourses')}</Link>
+            <Link href="/cart" onClick={() => setIsOpen(false)} className="rounded-xl px-4 py-3 text-base font-semibold text-[var(--muted)] hover:bg-[var(--surface)]">{t('cart')}</Link>
+            <AccountNavigation mobile onNavigate={() => setIsOpen(false)} />
           </nav>
         </div>
       )}

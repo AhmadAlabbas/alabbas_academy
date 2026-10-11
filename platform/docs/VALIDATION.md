@@ -1,5 +1,7 @@
 # Phase 1 validation
 
+This document records the foundation release. See [the accounts and carts validation](PHASE2_VALIDATION.md) for the current Phase 2 results and activation requirements.
+
 Validated on the cloud runner on 2026-10-10 with Node.js 24.19.0, PostgreSQL 17, and the committed npm lockfile. This report concerns the new development platform; it does not certify authentication, commerce, private playback, administration, or production launch.
 
 ## Application

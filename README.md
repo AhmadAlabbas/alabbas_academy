@@ -1,5 +1,13 @@
 # Alabbas Academy
 
+The current Vercel application is in **[platform/](platform/README.md)** on the `platform` branch. It uses Next.js, PostgreSQL, Arabic/English pages, the academy logo palette, SAR prices, accounts with email verification and password recovery, profile settings, and persistent guest/account carts. Set Vercel's root directory to `platform` and framework to **Next.js**.
+
+Follow **[the browser-only Vercel setup guide](platform/docs/VERCEL_SETUP.md)** to connect PostgreSQL and verification email without downloading the project. A successful deployment does not activate accounts until those services and migrations are configured. Checkout, protected learning, and full administration remain later phases; see [delivery status](platform/docs/PHASES.md).
+
+The PHP/MySQL site in [deploy/hostinger/](deploy/hostinger/README.md) and the `hostinger` branch are retained for the existing hosting deployment. The root-level Node application described below is the earlier demonstration, separate from the new Vercel platform.
+
+## Earlier local demonstration
+
 A black-and-white course academy with a responsive catalog, account signup/login, demo enrollment, lessons and downloadable resources, server-scored multiple-choice exams, and an administrator course editor.
 
 Requires Node.js 22 or newer. No external packages are required.

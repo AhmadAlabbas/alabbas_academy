@@ -11,6 +11,7 @@ import {routing, type Locale} from '@/i18n/routing';
 import {formatSAR} from '@/lib/money';
 import {findPublicCourse} from '@/lib/catalog';
 import {pageMetadata} from '@/lib/seo';
+import {AddToCartButton} from '@/components/cart/cart-controls';
 
 type CoursePageProps = {params: Promise<{locale: string; slug: string}>};
 
@@ -149,7 +150,8 @@ export default async function CoursePage({params}: CoursePageProps) {
             <h2 id="course-details-heading" className="sr-only">{t('details')}</h2>
             <p className="mb-2 text-xs text-muted">{t('priceLabel')}</p>
             <p className="mb-6 text-3xl font-semibold tracking-tight">{formatSAR(course.priceHalalas, locale)}</p>
-            <a href="#curriculum" className="button-primary w-full">{t('viewCurriculum')}<ArrowDown aria-hidden="true" className="size-4" /></a>
+            <AddToCartButton courseId={course.id} className="w-full" />
+            <a href="#curriculum" className="button-secondary mt-3 w-full">{t('viewCurriculum')}<ArrowDown aria-hidden="true" className="size-4" /></a>
             <p className="mt-4 text-xs leading-7 text-muted">{t('sampleDescription')}</p>
             <dl className="mt-6 space-y-4 border-t border-line pt-6 text-xs">
               <div className="flex justify-between gap-4"><dt className="text-muted">{t('levelLabel')}</dt><dd className="text-end font-medium">{levelText(course.level)}</dd></div>

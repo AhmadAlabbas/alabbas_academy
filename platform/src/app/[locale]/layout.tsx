@@ -7,6 +7,7 @@ import {SiteHeader} from '@/components/layout/site-header';
 import {sampleCourses} from '@/content/catalog';
 import {routing} from '@/i18n/routing';
 import {arabicFont, latinFont} from '@/lib/fonts';
+import {CartProvider} from '@/components/cart/cart-provider';
 import '../globals.css';
 
 type LocaleLayoutProps = {
@@ -45,12 +46,14 @@ export default async function LocaleLayout({children, params}: LocaleLayoutProps
     <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} data-scroll-behavior="smooth" className={`${arabicFont.variable} ${latinFont.variable}`}>
       <body>
         <NextIntlClientProvider messages={messages}>
+          <CartProvider>
           <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-[var(--navy)] focus:px-5 focus:py-3 focus:text-white">
             {t('skipToContent')}
           </a>
           <SiteHeader courseSlugs={sampleCourses.map((course) => course.slug)} />
           <main id="main-content" tabIndex={-1}>{children}</main>
           <SiteFooter />
+          </CartProvider>
         </NextIntlClientProvider>
       </body>
     </html>
