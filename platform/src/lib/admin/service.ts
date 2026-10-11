@@ -5,6 +5,7 @@ import { requireVerifiedUser } from "@/lib/auth/session";
 import { AccountError } from "@/lib/auth/errors";
 import { entities } from "./registry";
 import { socialLink, socialPlatforms } from "@/lib/social";
+import {parentFields} from './forms';
 export async function requireAdmin() {
   const user = await requireVerifiedUser();
   if (!user.roles.includes("administrator"))
@@ -37,6 +38,9 @@ export async function listAdmin(entity: string, query: URLSearchParams) {
   const q = (query.get("q") || "").slice(0, 120);
   const status = (query.get("status") || "").slice(0, 30);
   const where: Row = {
+    ...(parentFields[entity] && query.get(parentFields[entity])
+      ? {[parentFields[entity]]: query.get(parentFields[entity])!.slice(0, 191)} : {}),
+    ...(query.get('edit') ? {[config.identity || 'id']: query.get('edit')!.slice(0, 191)} : {}),
     ...(q
       ? { OR: config.search.map((field) => ({ [field]: { contains: q } })) }
       : {}),
@@ -81,6 +85,9 @@ export async function listAdmin(entity: string, query: URLSearchParams) {
       take: 25,
       skip: (page - 1) * 25,
       ...(select ? { select } : {}),
+      orderBy: config.fields.some(field => field.key === 'position')
+        ? [{position: 'asc'}, {[config.identity || 'id']: 'asc'}]
+        : {[config.identity || 'id']: 'desc'},
     }),
     db.count({ where }),
   ]);
@@ -94,11 +101,11 @@ export function entitySchema(entity: string, partial = false) {
     let value: z.ZodType =
       field.type === "boolean"
         ? z.boolean()
-        : field.type === "number"
+        : ["number", "money", "percentage"].includes(field.type || '')
           ? z
               .number()
               .int()
-              .min(0)
+              .min(['points', 'perUserLimit', 'timeLimitMinutes', 'maximumAttempts'].includes(field.key) ? 1 : 0)
               .max(
                 field.key === "passingBasisPoints" ||
                   field.key === "percentageBasisPoints"
@@ -196,11 +203,33 @@ export async function mutateAdmin(
     )
       throw new AccountError("INVALID_INPUT", 400);
   }
+  const orderedParents: Record<string, [string, string]> = {
+    sections: ['courseId', 'courses'], lessons: ['sectionId', 'sections'],
+    exams: ['courseId', 'courses'], questions: ['examId', 'exams'],
+    options: ['questionId', 'exam_questions'], attachments: ['lessonId', 'lessons'],
+    blocks: ['pageId', 'pages'],
+  };
+  const ordered = orderedParents[entity];
+  const write = async () => {
+    const automaticOrder = !id && ordered && (parsed.position === undefined || parsed.position === null);
+    const correctOption = entity === 'options' && parsed.isCorrect === true;
+    if (!automaticOrder && !correctOption) return id ? db.update({where: {[identity]: id}, data: parsed}) : db.create({data: parsed});
+    const [parent, table] = ordered;
+    return getDatabase().$transaction(async tx => {
+      const parentId = parsed[parent] ?? (id && correctOption ? (await tx.questionOption.findUniqueOrThrow({where: {id}})).questionId : undefined);
+      await tx.$queryRawUnsafe(`SELECT id FROM \`${table}\` WHERE id = ? FOR UPDATE`, parentId);
+      const model = (tx as unknown as Record<string, Delegate>)[config.model];
+      if (correctOption) await tx.questionOption.updateMany({where: {questionId: String(parentId), ...(id ? {id: {not: id}} : {})}, data: {isCorrect: false}});
+      if (automaticOrder) {
+        const [last] = await model.findMany({where: {[parent]: parentId}, orderBy: {position: 'desc'}, take: 1, select: {position: true}});
+        parsed.position = last ? Number(last.position) + 1 : 0;
+      }
+      return id ? model.update({where: {[identity]: id}, data: parsed}) : model.create({data: parsed});
+    });
+  };
   const row = remove
     ? await db.delete({ where: { [identity]: id } })
-    : id
-      ? await db.update({ where: { [identity]: id }, data: parsed })
-      : await db.create({ data: parsed });
+    : await write();
   await getDatabase().auditLog.create({
     data: {
       actorId,
@@ -215,54 +244,32 @@ export async function mutateAdmin(
 
 export async function adminLookups() {
   const db = getDatabase();
-  const [courses, categories, sections, exams, questions, files] =
-    await Promise.all([
-      db.course.findMany({
-        take: 100,
-        select: { id: true, title_ar: true, title_en: true },
-      }),
-      db.category.findMany({
-        take: 100,
-        select: { id: true, title_ar: true, title_en: true },
-      }),
-      db.section.findMany({
-        take: 100,
-        select: { id: true, title_ar: true, title_en: true },
-      }),
-      db.exam.findMany({
-        take: 100,
-        select: { id: true, title_ar: true, title_en: true },
-      }),
-      db.examQuestion.findMany({
-        take: 100,
-        select: { id: true, prompt_ar: true, prompt_en: true },
-      }),
-      db.mediaAsset.findMany({
-        where: { status: "READY" },
-        take: 100,
-        orderBy: { createdAt: "desc" },
-        select: { id: true, originalName: true },
-      }),
-    ]);
+  const [courses, categories, sections, lessons, exams, questions, files, instructors, tags, pages] = await Promise.all([
+    db.course.findMany({take: 1000, orderBy: {title_en: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
+    db.category.findMany({take: 1000, orderBy: {position: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
+    db.section.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}),
+    db.lesson.findMany({take: 1000, orderBy: [{sectionId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, section: {select: {title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}}}),
+    db.exam.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}),
+    db.examQuestion.findMany({take: 1000, orderBy: [{examId: 'asc'}, {position: 'asc'}], select: {id: true, prompt_ar: true, prompt_en: true, exam: {select: {title_ar: true, title_en: true, courseId: true}}}}),
+    db.mediaAsset.findMany({where: {status: 'READY'}, take: 1000, orderBy: {createdAt: 'desc'}, select: {id: true, originalName: true, kind: true}}),
+    db.instructor.findMany({take: 1000, orderBy: {name_en: 'asc'}, select: {id: true, name_ar: true, name_en: true}}),
+    db.tag.findMany({take: 1000, orderBy: {title_en: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
+    db.page.findMany({take: 1000, orderBy: {key: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
+  ]);
+  const asset = (file: typeof files[number], asUrl = false) => ({id: asUrl ? `/api/media/${file.id}` : file.id, title_ar: file.originalName, title_en: file.originalName});
+  const images = files.filter(file => file.kind === 'IMAGE').map(file => asset(file, true));
   return {
     courseId: courses,
     categoryId: categories,
-    sectionId: sections,
-    examId: exams,
-    questionId: questions.map((q) => ({
-      id: q.id,
-      title_ar: q.prompt_ar,
-      title_en: q.prompt_en,
-    })),
-    mediaAssetId: files.map((f) => ({
-      id: f.id,
-      title_ar: f.originalName,
-      title_en: f.originalName,
-    })),
-    videoFileId: files.map((f) => ({
-      id: f.id,
-      title_ar: f.originalName,
-      title_en: f.originalName,
-    })),
+    sectionId: sections.map(section => ({id: section.id, courseId: section.courseId, title_ar: `${section.course.title_ar} — ${section.title_ar}`, title_en: `${section.course.title_en} — ${section.title_en}`})),
+    lessonId: lessons.map(lesson => ({id: lesson.id, courseId: lesson.section.courseId, title_ar: `${lesson.section.course.title_ar} — ${lesson.section.title_ar} — ${lesson.title_ar}`, title_en: `${lesson.section.course.title_en} — ${lesson.section.title_en} — ${lesson.title_en}`})),
+    examId: exams.map(exam => ({id: exam.id, courseId: exam.courseId, title_ar: `${exam.course.title_ar} — ${exam.title_ar}`, title_en: `${exam.course.title_en} — ${exam.title_en}`})),
+    questionId: questions.map(question => ({id: question.id, courseId: question.exam.courseId, title_ar: `${question.exam.title_ar} — ${question.prompt_ar}`, title_en: `${question.exam.title_en} — ${question.prompt_en}`})),
+    mediaAssetId: files.filter(file => file.kind === 'DOCUMENT').map(file => asset(file)),
+    videoFileId: files.filter(file => file.kind === 'VIDEO').map(file => asset(file)),
+    thumbnailUrl: images, imageUrl: images,
+    instructorId: instructors.map(instructor => ({id: instructor.id, title_ar: instructor.name_ar, title_en: instructor.name_en})),
+    tagId: tags,
+    pageId: pages,
   };
 }

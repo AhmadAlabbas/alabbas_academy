@@ -7,18 +7,25 @@ import {
   adminStatusChoices,
 } from "@/lib/admin/registry";
 import { Link } from "@/i18n/navigation";
+import {AdminEditor} from './admin-editor';
+import {AdminActionPicker, type ChoiceAction} from './admin-action-picker';
+import {parentFields, recordTitle, type AdminLookups} from '@/lib/admin/forms';
+import {formatSAR} from '@/lib/money';
 type Row = Record<string, unknown>;
 export function AdminPanel({
   entity,
   initial,
   lookups = {},
   initialQuery = "",
+  initialParent = "",
+  openEditor = false,
+  initialRecord,
 }: {
   entity: string;
-  lookups?: Record<
-    string,
-    { id: string; title_ar: string; title_en: string }[]
-  >;
+  lookups?: AdminLookups;
+  initialParent?: string;
+  openEditor?: boolean;
+  initialRecord?: Row;
   initialQuery?: string;
   initial: { rows: unknown; total: number; page: number };
 }) {
@@ -30,12 +37,24 @@ export function AdminPanel({
     [page, setPage] = useState(1),
     [query, setQuery] = useState(initialQuery),
     [status, setStatus] = useState(""),
-    [current, setCurrent] = useState<Row | null>(null),
+    [current, setCurrent] = useState<Row | null>(openEditor ? initialRecord || {} : null),
+    [lookupChoices, setLookupChoices] = useState(lookups),
+    [parentValue, setParentValue] = useState(initialParent),
+    [picker, setPicker] = useState<ChoiceAction | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const parentField = parentFields[entity];
+  const selectedParent = lookupChoices[parentField]?.find(item => item.id === parentValue);
+  const courseId = parentField === 'courseId' ? parentValue : selectedParent?.courseId;
+  async function refreshLookups() {
+    try {
+      const response = await fetch('/api/admin/lookups');
+      if (response.ok) setLookupChoices(await response.json());
+    } catch { /* Uploaded selections remain selected even if refresh is delayed. */ }
+  }
   async function reload(p = page) {
     const r = await fetch(
-      `/api/admin/${entity}?page=${p}&q=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}`,
+      `/api/admin/${entity}?page=${p}&q=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}&includeLookups=1${parentField && parentValue ? '&' + parentField + '=' + encodeURIComponent(parentValue) : ''}`,
     );
     if (!r.ok) {
       setMessage(label("تعذر تحميل البيانات", "Unable to load data"));
@@ -45,71 +64,21 @@ export function AdminPanel({
     setRows(b.rows);
     setTotal(b.total);
     setPage(p);
+    if (b.lookups) setLookupChoices(b.lookups);
   }
   async function action(data: Row) {
     setBusy(true);
-    const r = await fetch("/api/admin/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    setMessage(
-      r.ok
-        ? label("تم تنفيذ الإجراء", "Action completed")
-        : label(
-            "تعذر تنفيذ الإجراء. تحقق من البيانات والصلاحيات.",
-            "Action failed. Check the data and permissions.",
-          ),
-    );
-    setBusy(false);
-    if (r.ok) await reload();
-  }
-  async function save(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!current) return;
-    setBusy(true);
-    const form = new FormData(event.currentTarget),
-      data: Row = {};
     try {
-      for (const field of config.fields) {
-        const v = String(form.get(field.key) || "");
-        data[field.key] =
-          field.type === "boolean"
-            ? form.has(field.key)
-            : field.type === "number"
-              ? v === ""
-                ? null
-                : Number(v)
-              : field.type === "json"
-                ? JSON.parse(v)
-                : field.type === "date"
-                  ? v
-                    ? new Date(v).toISOString()
-                    : null
-                  : v || (!field.required ? null : "");
-      }
-      const r = await fetch(`/api/admin/${entity}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: current[config.identity || "id"] ?? null,
-          data,
-        }),
+      const response = await fetch('/api/admin/action', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data),
       });
-      if (!r.ok) throw Error();
-      setCurrent(null);
-      setMessage(label("تم الحفظ", "Saved"));
-      await reload();
+      setMessage(response.ok ? label('تم تنفيذ الإجراء', 'Action completed') : label('تعذر تنفيذ الإجراء. راجع البيانات.', 'Action failed. Check the data.'));
+      if (response.ok) await reload();
+      return response.ok;
     } catch {
-      setMessage(
-        label(
-          "تعذر الحفظ. تحقق من الحقول والمعرّفات الفريدة والعلاقات.",
-          "Unable to save. Check fields, unique IDs and related records.",
-        ),
-      );
-    } finally {
-      setBusy(false);
-    }
+      setMessage(label('تعذر الاتصال. حاول مجددًا.', 'Unable to connect. Try again.'));
+      return false;
+    } finally {setBusy(false);}
   }
   async function upload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -117,29 +86,41 @@ export function AdminPanel({
     const data = new FormData();
     data.set("file", file);
     setBusy(true);
+    try {
     const r = await fetch("/api/admin/upload", { method: "POST", body: data });
-    const b = await r.json();
     setMessage(
       r.ok
-        ? label("معرّف الملف: ", "File ID: ") + b.id + " | " + b.url
+        ? label("تم رفع الملف: ", "Uploaded: ") + file.name
         : label(
             "تعذر رفع الملف: صورة 5MB أو PDF/TXT 10MB أو MP4 25MB",
             "Upload failed: image 5MB, PDF/TXT 10MB or MP4 25MB",
           ),
     );
-    setBusy(false);
+    if (r.ok) await refreshLookups();
+    } catch {
+      setMessage(label('تعذر الاتصال. حاول رفع الملف مجددًا.', 'Unable to connect. Try uploading again.'));
+    } finally {setBusy(false); event.target.value = '';}
   }
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-semibold">{ar ? config.ar : config.en}</h1>
         {!config.readonly && (
-          <button className="button-primary" onClick={() => setCurrent({})}>
+          <button className="button-primary" onClick={() => setCurrent(['courses', 'categories', 'instructors', 'tags', 'faqs'].includes(entity) ? {key: `${entity}-${crypto.randomUUID().slice(0, 12)}`} : {})}>
             {label("إضافة جديد", "Add new")}
           </button>
         )}
       </div>
+      {courseId && <Link href={`/admin/courses/${courseId}`} className="button-secondary inline-flex">{label('العودة إلى محتوى الدورة', 'Back to course content')}</Link>}
+      {picker && <AdminActionPicker selection={picker} lookups={lookupChoices} onClose={() => setPicker(null)} onSubmit={action} />}
       <div className="card flex flex-wrap gap-3 p-4">
+        {parentField && <label className="min-w-0 flex-1 sm:min-w-52">
+          {ar ? config.fields.find(field => field.key === parentField)?.ar : config.fields.find(field => field.key === parentField)?.en}
+          <select className="field" value={parentValue} onChange={event => setParentValue(event.target.value)}>
+            <option value="">{label('كل السجلات', 'All items')}</option>
+            {lookupChoices[parentField]?.map(item => <option key={item.id} value={item.id}>{ar ? item.title_ar : item.title_en}</option>)}
+          </select>
+        </label>}
         <label>
           {label("بحث", "Search")}
           <input
@@ -170,12 +151,7 @@ export function AdminPanel({
         >
           {label("تطبيق", "Apply")}
         </button>
-        <button
-          className="button-secondary self-end"
-          onClick={() => void action({ action: "retry-email" })}
-        >
-          {label("إعادة تسليم البريد", "Retry email delivery")}
-        </button>
+        {entity === 'jobs' && <button className="button-secondary self-end" onClick={() => void action({action: 'retry-email'})}>{label('إعادة تسليم البريد', 'Retry email delivery')}</button>}
       </div>
       {entity === "orders" && (
         <a
@@ -188,89 +164,11 @@ export function AdminPanel({
       <p role="status" className="break-words text-sm">
         {message}
       </p>
-      {current && (
-        <form onSubmit={save} className="card grid gap-4 p-6 md:grid-cols-2">
-          {config.fields.map((field) => (
-            <label key={field.key} className="text-sm">
-              {ar ? field.ar : field.en}
-              {field.type === "boolean" ? (
-                <input
-                  className="ms-3 size-5"
-                  name={field.key}
-                  type="checkbox"
-                  defaultChecked={Boolean(current[field.key])}
-                />
-              ) : field.type === "select" ? (
-                <select
-                  className="field"
-                  name={field.key}
-                  defaultValue={String(
-                    current[field.key] ?? field.options?.[0] ?? "",
-                  )}
-                >
-                  {field.options?.map((v) => (
-                    <option key={v} value={v}>
-                      {adminValueLabel(v, ar)}
-                    </option>
-                  ))}
-                </select>
-              ) : field.type === "textarea" || field.type === "json" ? (
-                <textarea
-                  className="field min-h-28"
-                  name={field.key}
-                  required={field.required}
-                  defaultValue={
-                    field.type === "json"
-                      ? JSON.stringify(current[field.key] ?? {})
-                      : String(current[field.key] ?? "")
-                  }
-                />
-              ) : (
-                <input
-                  className="field"
-                  name={field.key}
-                  list={lookups[field.key] ? `lookup-${field.key}` : undefined}
-                  type={
-                    field.type === "number"
-                      ? "number"
-                      : field.type === "date"
-                        ? "datetime-local"
-                        : "text"
-                  }
-                  min={field.type === "number" ? 0 : undefined}
-                  required={field.required}
-                  defaultValue={
-                    field.type === "date"
-                      ? String(current[field.key] ?? "").slice(0, 16)
-                      : String(current[field.key] ?? "")
-                  }
-                />
-              )}
-              {lookups[field.key] && (
-                <datalist id={`lookup-${field.key}`}>
-                  {lookups[field.key].map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {ar ? item.title_ar : item.title_en}
-                    </option>
-                  ))}
-                </datalist>
-              )}
-            </label>
-          ))}
-          <div className="flex gap-3">
-            <button disabled={busy} className="button-primary">
-              {label("حفظ", "Save")}
-            </button>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() => setCurrent(null)}
-            >
-              {label("إلغاء", "Cancel")}
-            </button>
-          </div>
-        </form>
-      )}
+      {current && <AdminEditor key={String(current[config.identity || 'id'] || current.key || 'new')} entity={entity} row={current} lookups={lookupChoices} parentValue={parentValue}
+        onCancel={() => setCurrent(null)} onRefreshLookups={refreshLookups}
+        onSaved={async () => {setCurrent(null); setMessage(label('تم الحفظ', 'Saved')); await reload();
+          if (entity === 'courses') setMessage(label('تم حفظ الدورة. افتح «إدارة المحتوى» لإضافة الدروس والاختبارات.', 'Course saved. Open Manage content to add lessons and exams.'));
+        }} />}
       <div className="card overflow-x-auto">
         <table className="w-full text-start text-sm">
           <thead>
@@ -287,18 +185,9 @@ export function AdminPanel({
                 key={String(row.id ?? row.key)}
               >
                 <td className="max-w-64 break-words p-4">
-                  <b>
-                    {String(
-                      row.title_ar ??
-                        row.name ??
-                        row.number ??
-                        row.key ??
-                        row.id,
-                    )}
-                  </b>
-                  <p className="mt-2 font-mono text-xs" dir="ltr">
-                    {String(row.id ?? row.key)}
-                  </p>
+                  <b>{recordTitle(row, ar)}</b>
+                  {Boolean(row[parentField]) && <p className="mt-2 text-xs text-muted">{(() => {const parent = lookupChoices[parentField]?.find(item => item.id === row[parentField]); return parent ? (ar ? parent.title_ar : parent.title_en) : '';})()}</p>}
+                  {entity === 'courses' && <p className="mt-2 text-sm text-accent">{formatSAR(Number(row.priceHalalas || 0), ar ? 'ar' : 'en')}</p>}
                 </td>
                 <td className="max-w-lg p-4">
                   <details>
@@ -427,19 +316,7 @@ export function AdminPanel({
                         <button
                           className="button-secondary"
                           onClick={() => {
-                            const role = window.prompt(
-                              label(
-                                "الدور: administrator / support / learner",
-                                "Role: administrator / support / learner",
-                              ),
-                              "learner",
-                            );
-                            if (role)
-                              void action({
-                                action: "role",
-                                id: row.id,
-                                value: role,
-                              });
+                            setPicker({kind: 'role', row});
                           }}
                         >
                           {label("الدور", "Role")}
@@ -447,15 +324,7 @@ export function AdminPanel({
                         <button
                           className="button-secondary"
                           onClick={() => {
-                            const course = window.prompt(
-                              label("معرّف الدورة", "Course ID"),
-                            );
-                            if (course)
-                              void action({
-                                action: "enroll",
-                                userId: row.id,
-                                courseId: course,
-                              });
+                            setPicker({kind: 'enroll', row});
                           }}
                         >
                           {label("تسجيل مجاني", "Free enrollment")}
@@ -463,18 +332,7 @@ export function AdminPanel({
                         <button
                           className="button-secondary"
                           onClick={() => {
-                            const course = window.prompt(
-                              label(
-                                "معرّف الدورة لإلغاء الوصول",
-                                "Course ID to revoke access",
-                              ),
-                            );
-                            if (course)
-                              void action({
-                                action: "revoke",
-                                userId: row.id,
-                                courseId: course,
-                              });
+                            setPicker({kind: 'revoke', row});
                           }}
                         >
                           {label("إلغاء الوصول", "Revoke access")}
@@ -512,15 +370,15 @@ export function AdminPanel({
                     {entity === "courses" && (
                       <Link
                         className="button-secondary"
-                        href={`/admin/sections?q=${row.id}`}
+                        href={`/admin/courses/${row.id}`}
                       >
-                        {label("أقسام الدورة", "Course sections")}
+                        {label("إدارة المحتوى", "Manage content")}
                       </Link>
                     )}
                     {entity === "sections" && (
                       <Link
                         className="button-secondary"
-                        href={`/admin/lessons?q=${row.id}`}
+                        href={`/admin/lessons?sectionId=${row.id}`}
                       >
                         {label("دروس القسم", "Section lessons")}
                       </Link>
@@ -528,7 +386,7 @@ export function AdminPanel({
                     {entity === "exams" && (
                       <Link
                         className="button-secondary"
-                        href={`/admin/questions?q=${row.id}`}
+                        href={`/admin/questions?examId=${row.id}`}
                       >
                         {label("الأسئلة", "Questions")}
                       </Link>
@@ -536,7 +394,7 @@ export function AdminPanel({
                     {entity === "questions" && (
                       <Link
                         className="button-secondary"
-                        href={`/admin/options?q=${row.id}`}
+                        href={`/admin/options?questionId=${row.id}`}
                       >
                         {label("الإجابات", "Answers")}
                       </Link>
@@ -545,15 +403,7 @@ export function AdminPanel({
                       <button
                         className="button-secondary"
                         onClick={() => {
-                          const value = window.prompt(
-                            label("معرّف الوسم", "Tag ID"),
-                          );
-                          if (value)
-                            void action({
-                              action: "tag",
-                              courseId: row.id,
-                              value,
-                            });
+                          setPicker({kind: 'tag', row});
                         }}
                       >
                         {label("إضافة وسم", "Add tag")}
@@ -563,15 +413,7 @@ export function AdminPanel({
                       <button
                         className="button-secondary"
                         onClick={() => {
-                          const value = window.prompt(
-                            label("معرّف المدرب", "Instructor ID"),
-                          );
-                          if (value)
-                            void action({
-                              action: "instructor",
-                              courseId: row.id,
-                              value,
-                            });
+                          setPicker({kind: 'instructor', row});
                         }}
                       >
                         {label("إضافة مدرب", "Add instructor")}
@@ -609,8 +451,8 @@ export function AdminPanel({
       <div className="card p-5">
         <label className="block text-sm">
           {label(
-            "رفع صورة / ملف PDF أو TXT / فيديو MP4. انسخ معرّف الملف إلى الحقل المناسب.",
-            "Upload an image / PDF or TXT / MP4. Copy the returned file ID into the relevant field.",
+            "مكتبة الملفات: ارفع صورة أو PDF/TXT أو فيديو MP4، ثم اختره بالاسم داخل المحرر.",
+            "File library: upload an image, PDF/TXT or MP4, then choose it by name in the editor.",
           )}
           <input
             type="file"

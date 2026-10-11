@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {mkdtemp, rm} from 'node:fs/promises';
 import {createServer} from 'node:net';
@@ -16,12 +17,13 @@ const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const base = `http://127.0.0.1:${port}`;
 const uploads = await mkdtemp(path.join(tmpdir(), 'academy-browser-uploads-'));
+const secret = randomBytes(48).toString('base64url');
 const children = [];
 let status = 1;
 try {
   const server = spawn(process.execPath, ['server.js'], {cwd: root, stdio: 'ignore', env: {
     ...process.env, DATABASE_URL: database.href, PORT: String(port), ACADEMY_HOST: '127.0.0.1',
-    AUTH_URL: base, NEXT_PUBLIC_APP_URL: base, UPLOAD_DIR: uploads, PAYMENTS_ENABLED: 'false',
+    AUTH_URL: base, AUTH_SECRET: secret, NEXT_PUBLIC_APP_URL: base, UPLOAD_DIR: uploads, PAYMENTS_ENABLED: 'false',
     // No real email or payment provider is contacted by preview checks.
     SMTP_USER: '', SMTP_PASSWORD: '', RESEND_API_KEY: '', GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '',
   }});
@@ -43,8 +45,9 @@ try {
   for (const args of [
     ['scripts/check-deployment.mjs', '--url', base, '--environment', process.env.ACADEMY_ENVIRONMENT === 'staging' ? 'staging' : 'production', '--canonical-origin', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'],
     ['scripts/test-theme-navigation.mjs'],
-  ]) {
-    const check = spawn(process.execPath, args, {cwd: root, stdio: 'inherit', env: {...process.env, ACADEMY_TEST_BASE_URL: base}});
+    ['scripts/test-admin-builder.mjs'],
+  ].filter(args => !process.argv.includes('--admin-only') || args[0] === 'scripts/test-admin-builder.mjs')) {
+    const check = spawn(process.execPath, args, {cwd: root, stdio: 'inherit', env: {...process.env, AUTH_SECRET: secret, ACADEMY_TEST_BASE_URL: base}});
     children.push(check);
     const result = await new Promise((resolve, reject) => {check.once('error', reject); check.once('exit', code => resolve(code ?? 1));});
     if (result !== 0) {status = result; break;}

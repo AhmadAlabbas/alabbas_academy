@@ -17,6 +17,7 @@
     "test:certificates": "node scripts/test-certificate-download.mjs",
     "test:theme-navigation": "node scripts/test-theme-navigation.mjs",
     "test:browser": "node scripts/test-browser-preview.mjs",
+    "test:admin-builder": "node scripts/test-browser-preview.mjs --admin-only",
     "check:deployment": "node scripts/check-deployment.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",

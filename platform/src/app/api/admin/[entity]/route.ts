@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireAdmin, listAdmin, mutateAdmin } from "@/lib/admin/service";
+import { requireAdmin, listAdmin, mutateAdmin, adminLookups } from "@/lib/admin/service";
 import {
   accountErrorResponse,
   readJson,
@@ -11,18 +11,26 @@ const input = z
     data: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
+function adminError(error: unknown) {
+  if (error instanceof z.ZodError) return Response.json({ok: false, code: 'INVALID_INPUT', fieldErrors: z.flattenError(error).fieldErrors}, {status: 400});
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') return Response.json({ok: false, code: 'DUPLICATE_VALUE'}, {status: 409});
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'P2003') return Response.json({ok: false, code: 'INVALID_RELATION'}, {status: 400});
+  return accountErrorResponse(error);
+}
 export async function GET(
   r: Request,
   c: { params: Promise<{ entity: string }> },
 ) {
   try {
     await requireAdmin();
+    const query = new URL(r.url).searchParams;
     return Response.json(
-      await listAdmin((await c.params).entity, new URL(r.url).searchParams),
+      {...await listAdmin((await c.params).entity, query),
+        ...(query.get('includeLookups') === '1' ? {lookups: await adminLookups()} : {})},
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (e) {
-    return accountErrorResponse(e);
+    return adminError(e);
   }
 }
 export async function POST(
@@ -36,7 +44,7 @@ export async function POST(
       await mutateAdmin((await c.params).entity, body.id, body.data, user.id),
     );
   } catch (e) {
-    return accountErrorResponse(e);
+    return adminError(e);
   }
 }
 export async function DELETE(
@@ -51,6 +59,6 @@ export async function DELETE(
       await mutateAdmin((await c.params).entity, body.id, {}, user.id, true),
     );
   } catch (e) {
-    return accountErrorResponse(e);
+    return adminError(e);
   }
 }

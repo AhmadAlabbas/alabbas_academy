@@ -6,6 +6,8 @@ export type Field = {
     | "text"
     | "textarea"
     | "number"
+    | "money"
+    | "percentage"
     | "boolean"
     | "json"
     | "date"
@@ -31,23 +33,24 @@ const f = (
   required = false,
   options?: string[],
 ): Field => ({ key, ar, en, type, required, options });
-const bilingual = (prefix: string, ar: string, en: string, long = false) => [
+const bilingual = (prefix: string, ar: string, en: string, long = false, required = true) => [
   f(
     prefix + "_ar",
     ar + " (العربية)",
     en + " (Arabic)",
     long ? "textarea" : "text",
-    true,
+    required,
   ),
   f(
     prefix + "_en",
     ar + " (الإنجليزية)",
     en + " (English)",
     long ? "textarea" : "text",
-    true,
+    required,
   ),
 ];
-const position = f("position", "الترتيب", "Position", "number", true);
+const position = f("position", "الترتيب (تلقائي عند تركه فارغًا)", "Order (automatic when empty)", "number");
+const defaultPosition = f("position", "الترتيب (الافتراضي 0)", "Order (default 0)", "number");
 const published = f("isPublished", "منشور", "Published", "boolean");
 export const entities: Record<string, Entity> = {
   courses: {
@@ -59,7 +62,7 @@ export const entities: Record<string, Entity> = {
       f("key", "معرّف ثابت", "Key", "text", true),
       ...bilingual("title", "العنوان", "Title"),
       ...bilingual("slug", "الرابط", "Slug"),
-      f("categoryId", "معرّف التصنيف", "Category ID", "text", true),
+      f("categoryId", "التصنيف", "Category", "text", true),
       f("status", "الحالة", "Status", "select", true, [
         "DRAFT",
         "PUBLISHED",
@@ -72,22 +75,22 @@ export const entities: Record<string, Entity> = {
       ]),
       f(
         "priceHalalas",
-        "السعر بالهللات (100 = ريال)",
-        "Price in halalas (100 = SAR)",
-        "number",
+        "السعر بالريال السعودي",
+        "Price (SAR)",
+        "money",
         true,
       ),
       f(
         "compareAtHalalas",
-        "السعر السابق بالهللات",
-        "Previous price in halalas",
-        "number",
+        "السعر السابق بالريال السعودي",
+        "Previous price (SAR)",
+        "money",
       ),
       f("minutes", "المدة بالدقائق", "Duration in minutes", "number"),
       ...bilingual("description", "الوصف", "Description", true),
-      ...bilingual("outcomes", "ما ستتعلمه", "Learning outcomes", true),
-      ...bilingual("requirements", "المتطلبات", "Requirements", true),
-      ...bilingual("seo", "وصف محركات البحث", "SEO description", true),
+      ...bilingual("outcomes", "ما ستتعلمه", "Learning outcomes", true, false),
+      ...bilingual("requirements", "المتطلبات", "Requirements", true, false),
+      ...bilingual("seo", "وصف محركات البحث", "SEO description", true, false),
       f("previewUrl", "رابط المعاينة", "Preview video URL"),
       f("thumbnailUrl", "رابط الصورة", "Thumbnail URL"),
       f("languages", "اللغات (ar,en)", "Languages (ar,en)"),
@@ -104,7 +107,7 @@ export const entities: Record<string, Entity> = {
       f("key", "المعرّف", "Key", "text", true),
       ...bilingual("title", "العنوان", "Title"),
       ...bilingual("description", "الوصف", "Description", true),
-      position,
+      defaultPosition,
       f("tone", "لون البطاقة", "Card tone", "select", true, [
         "sky",
         "gold",
@@ -134,7 +137,7 @@ export const entities: Record<string, Entity> = {
     en: "Course sections",
     search: ["title_ar", "title_en", "courseId"],
     fields: [
-      f("courseId", "معرّف الدورة", "Course ID", "text", true),
+      f("courseId", "الدورة", "Course", "text", true),
       ...bilingual("title", "العنوان", "Title"),
       position,
     ],
@@ -145,7 +148,7 @@ export const entities: Record<string, Entity> = {
     en: "Lessons",
     search: ["title_ar", "title_en", "sectionId"],
     fields: [
-      f("sectionId", "معرّف القسم", "Section ID", "text", true),
+      f("sectionId", "قسم الدورة", "Course section", "text", true),
       ...bilingual("title", "العنوان", "Title"),
       position,
       f("kind", "النوع", "Type", "select", true, ["VIDEO", "ARTICLE"]),
@@ -155,8 +158,8 @@ export const entities: Record<string, Entity> = {
         "رابط YouTube / Vimeo / Bunny",
         "YouTube / Vimeo / Bunny URL",
       ),
-      f("videoFileId", "معرّف ملف الفيديو المرفوع", "Uploaded video file ID"),
-      ...bilingual("body", "المحتوى", "Content", true),
+      f("videoFileId", "فيديو مرفوع", "Uploaded video"),
+      ...bilingual("body", "المحتوى", "Content", true, false),
       published,
       f("notesEnabled", "الملاحظات", "Notes enabled", "boolean"),
     ],
@@ -167,11 +170,11 @@ export const entities: Record<string, Entity> = {
     en: "Lesson attachments",
     search: ["labelAr", "labelEn", "lessonId"],
     fields: [
-      f("lessonId", "معرّف الدرس", "Lesson ID", "text", true),
+      f("lessonId", "الدرس", "Lesson", "text", true),
       f(
         "mediaAssetId",
-        "معرّف الملف المرفوع",
-        "Uploaded file ID",
+        "الملف",
+        "File",
         "text",
         true,
       ),
@@ -186,17 +189,17 @@ export const entities: Record<string, Entity> = {
     en: "Exams",
     search: ["title_ar", "title_en", "courseId"],
     fields: [
-      f("courseId", "معرّف الدورة", "Course ID", "text", true),
+      f("courseId", "الدورة", "Course", "text", true),
       ...bilingual("title", "العنوان", "Title"),
-      ...bilingual("instructions", "التعليمات", "Instructions", true),
+      ...bilingual("instructions", "التعليمات", "Instructions", true, false),
       position,
       published,
       f("isRequired", "مطلوب للشهادة", "Required for certificate", "boolean"),
       f(
         "passingBasisPoints",
-        "درجة النجاح (7000 = 70%)",
-        "Pass mark (7000 = 70%)",
-        "number",
+        "درجة النجاح (%)",
+        "Pass mark (%)",
+        "percentage",
         true,
       ),
       f(
@@ -219,9 +222,9 @@ export const entities: Record<string, Entity> = {
     en: "Exam questions",
     search: ["prompt_ar", "prompt_en", "examId"],
     fields: [
-      f("examId", "معرّف الاختبار", "Exam ID", "text", true),
+      f("examId", "الاختبار", "Exam", "text", true),
       ...bilingual("prompt", "السؤال", "Question", true),
-      ...bilingual("explanation", "التفسير", "Explanation", true),
+      ...bilingual("explanation", "التفسير", "Explanation", true, false),
       position,
       f("points", "النقاط", "Points", "number", true),
       f("kind", "النوع", "Type", "select", true, ["SINGLE_CHOICE"]),
@@ -233,7 +236,7 @@ export const entities: Record<string, Entity> = {
     en: "Answer options",
     search: ["label_ar", "label_en", "questionId"],
     fields: [
-      f("questionId", "معرّف السؤال", "Question ID", "text", true),
+      f("questionId", "السؤال", "Question", "text", true),
       ...bilingual("label", "الإجابة", "Answer"),
       position,
       f("isCorrect", "إجابة صحيحة", "Correct answer", "boolean"),
@@ -252,22 +255,22 @@ export const entities: Record<string, Entity> = {
       ]),
       f(
         "percentageBasisPoints",
-        "النسبة (1000 = 10%)",
-        "Percentage (1000 = 10%)",
-        "number",
+        "النسبة (%)",
+        "Percentage (%)",
+        "percentage",
       ),
-      f("amountHalalas", "المبلغ بالهللات", "Amount in halalas", "number"),
+      f("amountHalalas", "المبلغ بالريال السعودي", "Amount (SAR)", "money"),
       f(
         "minimumOrderHalalas",
-        "الحد الأدنى بالهللات",
-        "Minimum order in halalas",
-        "number",
+        "الحد الأدنى بالريال السعودي",
+        "Minimum order (SAR)",
+        "money",
       ),
       f(
         "maximumDiscountHalalas",
-        "أقصى خصم بالهللات",
-        "Maximum discount in halalas",
-        "number",
+        "أقصى خصم بالريال السعودي",
+        "Maximum discount (SAR)",
+        "money",
       ),
       f("usageLimit", "حد الاستخدام", "Usage limit", "number"),
       f("perUserLimit", "الحد لكل مستخدم", "Per-user limit", "number", true),
@@ -313,7 +316,7 @@ export const entities: Record<string, Entity> = {
     en: "Homepage blocks",
     search: ["key", "title_ar", "title_en"],
     fields: [
-      f("pageId", "معرّف الصفحة", "Page ID", "text", true),
+      f("pageId", "الصفحة", "Page", "text", true),
       f("key", "المعرّف (hero)", "Key (hero)", "text", true),
       f("kind", "النوع", "Type", "text", true),
       ...bilingual("title", "العنوان", "Title"),
@@ -331,7 +334,7 @@ export const entities: Record<string, Entity> = {
       f("key", "المعرّف", "Key", "text", true),
       ...bilingual("question", "السؤال", "Question"),
       ...bilingual("answer", "الإجابة", "Answer", true),
-      position,
+      defaultPosition,
       published,
     ],
   },
@@ -345,7 +348,7 @@ export const entities: Record<string, Entity> = {
       ...bilingual("quote", "الرأي", "Quote", true),
       f("source", "المصدر (SAMPLE للتجريبي)", "Source (SAMPLE for examples)"),
       f("consentAt", "تاريخ الموافقة", "Consent date", "date", true),
-      position,
+      defaultPosition,
       published,
     ],
   },

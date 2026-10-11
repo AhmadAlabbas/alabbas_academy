@@ -54,6 +54,7 @@ try {
         "tests/cart-database.test.ts",
         "tests/account-email-database.test.ts",
         "tests/account-maintenance-database.test.ts",
+        "tests/admin-builder-database.test.ts",
       ],
       { env, stdio: "inherit" },
     );

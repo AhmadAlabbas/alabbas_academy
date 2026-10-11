@@ -20,7 +20,7 @@ The source release targets branch `platform`, application root `platform`, Node 
 | Security | Server validation and fresh roles/account status, protected filesystem paths/files, bounded uploads with signatures, safe embed providers, no public secret payloads, headers/CSP, encrypted database queues, atomic order/coupon/enrollment handling |
 | Deployment deliverables | Complete source/lockfile, `.env.example`, exact Hostinger/SMTP/OAuth/payment/content-edit instructions in README, checked standalone runtime packaging and this checklist |
 
-## Executed checks
+## Initial release checks
 
 - Frozen `npm ci`: passed with the committed dependency versions.
 - `npm run lint`, `npm run typecheck`, `npm run build`: passed. Build generated the standalone application successfully.
@@ -44,6 +44,12 @@ The source release targets branch `platform`, application root `platform`, Node 
 5. Review sample/legal/contact material and back up the previous site/database before customer advertising. Measure performance on the final host; no live customer-readiness claim is made yet.
 
 Native Git read/push is available through the existing GitHub authentication proxy. No Hostinger deployment connector/SSH binding is available. HTTPS inspection of `alabbasacademy.com` was denied by the current egress proxy (CONNECT 403); a saved network draft is not a running network change. Pushing source does not prove Hostinger deployed it. Publication must be confirmed by the deployed source commit and customer-domain checks.
+
+## Course-builder checkpoint — 11 October 2026
+
+Added a course-content workspace, named relationship and file pickers, inline upload/selection, automatic curriculum ordering, SAR amount inputs, percentage pass marks, generated course references/links, and named instructor/enrollment dialogs. Correct-answer edits switch the question's single correct choice. Existing accounts, curriculum records and uploaded files remain compatible; this change adds no database migration or environment setting.
+
+Validation on Node 22.18.0: production build/type checking and lint passed; **239 unit tests** passed; **40 database tests across seven suites** passed with both migrations on an empty isolated database; all three Hostinger startup modes passed. Production browser checks passed **20 public deployment checks**, **28 theme/navigation checks**, and **eight administrator/learner workflow checks**. The browser authored a course, uploaded its thumbnail and TXT attachment, created/published a lesson and required exam, changed the correct answer, assigned an instructor, enrolled a learner by name, completed the lesson/exam and downloaded a valid PDF certificate. English/Arabic workspaces fit 320/390/768px; dark editor/dialog checks passed at 320px. Desktop/mobile screenshots were inspected. This is local production-build evidence; the actual Hostinger deployment must still be distinguished from source publication.
 
 
 ## Repository import follow-up — 11 October 2026
