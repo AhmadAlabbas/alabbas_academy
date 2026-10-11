@@ -258,6 +258,8 @@
     "resetPasswordButton": "Save new password",
     "backToLogin": "Back to sign in",
     "requestNewLink": "Request a new reset link",
+    "requestVerificationLink": "Request another confirmation email",
+    "verificationRecoveryHint": "Sign in to your account to request a new confirmation email. If your email is already confirmed, you can continue from your account.",
     "verificationHint": "Check your inbox and spam folder. Open the email from Alabbas Academy, then confirm your email on the page it links to.",
     "confirmVerification": "When you’re ready, press the button below to confirm your email.",
     "verifyButton": "Confirm my email",
@@ -304,7 +306,8 @@
       "UNAUTHORIZED": "Please sign in again to continue.",
       "FORBIDDEN": "Confirm your email and sign in again with your password before continuing.",
       "SERVICE_UNAVAILABLE": "Account services are unavailable. Please try again after the academy’s account setup is complete.",
-      "OAuthAccountNotLinked": "This email already belongs to an academy account. Sign in with your password first, then connect Google from your account page."
+      "OAuthAccountNotLinked": "This email already belongs to an academy account. Sign in with your password first, then connect Google from your account page.",
+      "AccessDenied": "We couldn’t complete Google sign-in. Use a Google account with a verified email. To connect Google to an existing academy account, confirm your academy email, sign in with your password again, then connect the same email from your account page."
     },
     "success": {
       "CHECK_EMAIL": "Check your email for the confirmation instructions. If an account already exists, you can sign in or reset your password.",

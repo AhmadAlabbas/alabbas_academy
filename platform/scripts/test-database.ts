@@ -13,8 +13,8 @@ if (!connectionString || !localDatabase) {
   process.exit(1);
 }
 const result = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run',
-  'tests/auth-database.test.ts', 'tests/cart-database.test.ts', 'tests/email-database.test.ts'], {
+  'tests/auth-database.test.ts', 'tests/cart-database.test.ts', 'tests/email-database.test.ts', 'tests/account-maintenance-database.test.ts'], {
   stdio: 'inherit',
-  env: {...process.env, AUTH_TEST_DATABASE_URL: connectionString, CART_TEST_DATABASE_URL: connectionString, EMAIL_TEST_DATABASE_URL: connectionString},
+  env: {...process.env, AUTH_TEST_DATABASE_URL: connectionString, CART_TEST_DATABASE_URL: connectionString, EMAIL_TEST_DATABASE_URL: connectionString, ACCOUNT_MAINTENANCE_TEST_DATABASE_URL: connectionString},
 });
 process.exit(result.status ?? 1);

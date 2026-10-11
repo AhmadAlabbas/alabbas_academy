@@ -5,6 +5,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import {useTransition} from 'react';
 import {usePathname, useRouter} from '@/i18n/navigation';
 import type {Locale} from '@/i18n/routing';
+import {languageDestination} from './language-destination';
 
 type LanguageSwitcherProps = {
   courseSlugs: Array<Record<Locale, string>>;
@@ -19,19 +20,9 @@ export function LanguageSwitcher({courseSlugs}: LanguageSwitcherProps) {
   const [isPending, startTransition] = useTransition();
 
   function switchLanguage() {
-    let nextPath = pathname;
-
-    if (pathname.startsWith('/courses/')) {
-      const currentSlug = decodeURIComponent(pathname.slice('/courses/'.length));
-      const courseSlug = courseSlugs.find((item) => item[locale] === currentSlug);
-      nextPath = courseSlug ? `/courses/${courseSlug[nextLocale]}` : '/';
-    } else if (!['/', '/courses', '/about', '/cart', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/account'].includes(pathname)) {
-      nextPath = '/';
-    }
-
-    const suffix = window.location.search + window.location.hash;
+    const nextPath = languageDestination({pathname, search: window.location.search, hash: window.location.hash, locale, nextLocale, courseSlugs});
     startTransition(() => {
-      router.replace(nextPath + suffix, {locale: nextLocale});
+      router.replace(nextPath, {locale: nextLocale});
     });
   }
 

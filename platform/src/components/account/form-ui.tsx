@@ -61,7 +61,7 @@ export function useAccountAvailability() {
   return availability;
 }
 
-const knownErrors = new Set(['INVALID_INPUT', 'INVALID_CREDENTIALS', 'INVALID_TOKEN', 'RATE_LIMITED', 'UNAUTHORIZED', 'FORBIDDEN', 'SERVICE_UNAVAILABLE', 'OAuthAccountNotLinked']);
+const knownErrors = new Set(['INVALID_INPUT', 'INVALID_CREDENTIALS', 'INVALID_TOKEN', 'RATE_LIMITED', 'UNAUTHORIZED', 'FORBIDDEN', 'SERVICE_UNAVAILABLE', 'OAuthAccountNotLinked', 'AccessDenied']);
 
 export function AccountNotice({code, success = false}: {code: string | null; success?: boolean}) {
   const t = useTranslations('Account');

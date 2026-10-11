@@ -25,7 +25,7 @@ export function LoginForm({callbackUrl, initialError, passwordChanged = false}: 
   const t = useTranslations('Account');
   const locale = useLocale();
   const {configured, googleEnabled} = useAccountAvailability();
-  const [error, setError] = useState<string | null>(initialError === 'OAuthAccountNotLinked' ? initialError : initialError ? 'INVALID_CREDENTIALS' : null);
+  const [error, setError] = useState<string | null>(initialError === 'OAuthAccountNotLinked' || initialError === 'AccessDenied' ? initialError : initialError ? 'INVALID_CREDENTIALS' : null);
   const form = useForm<z.input<typeof loginSchema>, unknown, z.output<typeof loginSchema>>({resolver: zodResolver(loginSchema), mode: 'onSubmit', defaultValues: {email: '', password: ''}});
   const returnPath = safeAccountReturnPath(callbackUrl, locale);
   return <div className="space-y-6">
@@ -67,7 +67,7 @@ export function SignupForm({callbackUrl}: {callbackUrl?: string}) {
     <AccountNotice code={error} />
     <form noValidate className="space-y-5" onSubmit={form.handleSubmit(async (values) => {
       setError(null);
-      const payload = {name: values.name, email: values.email, password: values.password, locale: values.locale};
+      const payload = {name: values.name, email: values.email, password: values.password, locale};
       const result = await accountRequest('register', payload);
       if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;}
       form.reset(); setComplete(true);
@@ -92,7 +92,7 @@ export function ForgotPasswordForm() {
   return <div className="space-y-6">
     {(configured === false || emailConfigured === false) && <AccountNotice code="SERVICE_UNAVAILABLE" />}
     <AccountNotice code={error} />
-    {complete ? <AccountNotice success code="RESET_EMAIL_SENT" /> : <form noValidate className="space-y-5" onSubmit={form.handleSubmit(async (values) => {setError(null); const result = await accountRequest('forgot-password', values); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); form.reset();})}>
+    {complete ? <AccountNotice success code="RESET_EMAIL_SENT" /> : <form noValidate className="space-y-5" onSubmit={form.handleSubmit(async (values) => {setError(null); const result = await accountRequest('forgot-password', {...values, locale}); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); form.reset();})}>
       <AccountField id="forgot-email" type="email" dir="ltr" autoComplete="email" inputMode="email" label={t('email')} registration={form.register('email')} error={form.formState.errors.email ? t('validation.email') : undefined} />
       <SubmitButton pending={form.formState.isSubmitting} disabled={configured !== true || emailConfigured !== true}>{t('resetEmailButton')}</SubmitButton>
     </form>}
@@ -111,7 +111,7 @@ export function ResetPasswordForm({token}: {token: string}) {
   return <div className="space-y-6">
     {configured === false && <AccountNotice code="SERVICE_UNAVAILABLE" />}
     <AccountNotice code={error} />
-    {complete ? <><AccountNotice success code="PASSWORD_RESET" /><Link href="/login" className="button-primary w-full">{t('loginLink')}</Link></> : validToken ? <form noValidate className="space-y-5" onSubmit={form.handleSubmit(async (values) => {setError(null); const payload = {token: values.token, password: values.password, locale: values.locale}; const result = await accountRequest('reset-password', payload); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); form.reset(); notifyAccountChanged();})}>
+    {complete ? <><AccountNotice success code="PASSWORD_RESET" /><Link href="/login" className="button-primary w-full">{t('loginLink')}</Link></> : validToken && error !== 'INVALID_TOKEN' ? <form noValidate className="space-y-5" onSubmit={form.handleSubmit(async (values) => {setError(null); const payload = {token: values.token, password: values.password, locale}; const result = await accountRequest('reset-password', payload); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); form.reset(); notifyAccountChanged();})}>
       <PasswordField id="reset-password" autoComplete="new-password" label={t('newPassword')} hint={t('passwordHint')} registration={form.register('password')} error={form.formState.errors.password ? t('validation.password') : undefined} />
       <PasswordField id="reset-confirm-password" autoComplete="new-password" label={t('confirmPassword')} registration={form.register('confirmPassword')} error={form.formState.errors.confirmPassword ? t('validation.passwordMatch') : undefined} />
       <SubmitButton pending={form.formState.isSubmitting} disabled={configured !== true}>{t('resetPasswordButton')}</SubmitButton>
@@ -129,9 +129,9 @@ export function VerifyEmailForm({token}: {token: string}) {
   return <div className="space-y-6">
     {configured === false && <AccountNotice code="SERVICE_UNAVAILABLE" />}
     <AccountNotice code={error} />
-    {complete ? <><AccountNotice success code="EMAIL_VERIFIED" /><Link href="/account" className="button-primary w-full">{t('goToAccount')}</Link></> : validToken ? <form onSubmit={async (event) => {event.preventDefault(); setError(null); setPending(true); const result = await accountRequest('verify-email', {token}); setPending(false); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); notifyAccountChanged();}} className="space-y-5">
+    {complete ? <><AccountNotice success code="EMAIL_VERIFIED" /><Link href="/account" className="button-primary w-full">{t('goToAccount')}</Link></> : validToken && error !== 'INVALID_TOKEN' ? <form onSubmit={async (event) => {event.preventDefault(); setError(null); setPending(true); const result = await accountRequest('verify-email', {token}); setPending(false); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); notifyAccountChanged();}} className="space-y-5">
       <p className="rounded-2xl bg-skysoft p-4 text-sm leading-7 text-[#22677f]">{t('confirmVerification')}</p>
       <SubmitButton pending={pending} disabled={configured !== true}>{t('verifyButton')}</SubmitButton>
-    </form> : <Link href="/login" className="button-secondary w-full">{t('loginLink')}</Link>}
+    </form> : <><p className="text-sm leading-7 text-muted">{t('verificationRecoveryHint')}</p><Link href="/account" className="button-secondary w-full">{t('requestVerificationLink')}</Link></>}
   </div>;
 }

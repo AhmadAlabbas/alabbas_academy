@@ -5,16 +5,19 @@ Validation date: 11 October 2026, Asia/Riyadh. These results cover the implement
 ## Automated checks
 
 - TypeScript and ESLint passed.
-- `npm test`: 130 tests passed across six files. The 21 database tests intentionally skipped when their explicit local database variables were absent.
-- `npm run test:database`: all 21 PostgreSQL tests executed and passed across three files: seven account, four cart, and ten email worker tests.
+- `npm test`: 176 tests passed across nine files. The 24 database tests intentionally skipped when their explicit local database variables were absent.
+- `npm run test:database`: all 24 PostgreSQL tests executed and passed across four files: seven account, four cart, ten email worker, and three retention cleanup tests.
 - Applied migrations are up to date; repeating the demonstration seed created no additional courses and preserved existing content. No default administrator was created.
 - The one-shot email worker executed successfully with redacted counts. Development outbox mode writes private ignored files and is rejected in production.
+- The one-shot account cleanup worker executed successfully with deletion counts only. Isolated-schema tests prove retention, repeatable bounded concurrent batches and preservation of a rate counter renewed while cleanup runs.
 
 The account tests check single-use and expired verification/reset tokens, password hashing, duplicate registration, revoked sessions, password-reset/login races, recent verified ownership for Google linking, stale profile writes, persisted concurrent rate limits, bounded JSON, forged origins, mass assignment, and durable logout failure handling.
 
 Cart tests exercise simultaneous first merges, duplicate suppression, ownership and publication checks, edited database prices, user isolation, blocked browser storage, and guest/account transitions. Email tests exercise atomic enqueueing, encryption, deduplication, concurrent claims, expired and consumed links, crashed leases, retry/backoff, provider idempotency, exhausted jobs, tamper rejection, and payload cleanup. Provider HTTP calls in automated tests are controlled test doubles.
 
-The database runner refuses remote databases. Fixtures use unique identifiers and are removed afterward; email worker integration tests use a temporary schema and private temporary outbox. Existing application records are retained.
+Configuration regressions exercise the installed Auth.js defaults to demonstrate why a path in `AUTH_URL` breaks authentication routes. Invalid primary origins, empty values and conflicting legacy aliases fail closed. Navigation regressions cover cart/course returns after a locale change, unsafe callbacks, preserved email-link queries and malformed encoded course slugs. Worker tests reject missing, wrong, oversized and query-only credentials without running cleanup.
+
+The database runner refuses remote databases. Fixtures use unique identifiers and are removed afterward; email worker and retention integration tests use temporary schemas, and email tests use a private temporary outbox. Existing application records are retained.
 
 ## Browser checks
 
@@ -37,11 +40,15 @@ Five additional account browser checks passed keyboard avatar/profile controls a
 
 Private test passwords and account links were not logged or committed. Only development messages were generated; these are not live Resend delivery results.
 
+The Phase 2 follow-up passed eight additional browser regressions with no page errors: Arabic-to-English login returns to the cart; cross-tab profile refresh updates pristine fields while keeping dirty edits; header logout still revokes the old cookie when the Auth.js signout POST fails; Google rejection guidance renders in both languages; signup and recovery submit the displayed locale; and expired verification/reset links offer working recovery routes. Fixtures were removed and the temporary development server was stopped afterward.
+
 ## Production build and runtime
 
 `npm run build` passed, generating the Next.js standalone server and all public pages. The production server passed the five private-account checks again against PostgreSQL, the forty responsive route checks, and the existing public-site smoke checks for Arabic default routing, localized course slugs, language switching, curriculum, search/recovery, assets, headers, sitemap, robots and genuine localized 404 responses. No browser page errors occurred.
 
-The final Docker image `2f5afc8097aa` built with a frozen lockfile and verified registry artifacts, then ran healthy as non-root UID 1001. With database/auth/email secrets absent, localized public pages, signup readiness messaging, assets and the guest cart remained usable; signup was disabled with a clear service notice. Native Argon2 hash/verification worked. Tracing includes the PostgreSQL driver, Prisma client runtime and bundled adapter/generated models, while excluding Prisma CLI/config, MySQL, deepmerge-ts, ESLint, braces and micromatch. Private environment/outbox files and build proxy/CA secrets were absent from the runtime artifact. These artifact checks do not erase the unresolved tooling dependency audit.
+Those build, type, five private-account, forty responsive and public smoke checks passed again for the Phase 2 follow-up. The running production maintenance route rejected GET with 405, rejected an unauthenticated POST with 401 and returned only deletion counts for an authenticated POST. This verifies the endpoint locally; an external hosted schedule remains to be configured.
+
+The initial account-release Docker image `2f5afc8097aa` built with a frozen lockfile and verified registry artifacts, then ran healthy as non-root UID 1001. With database/auth/email secrets absent, localized public pages, signup readiness messaging, assets and the guest cart remained usable; signup was disabled with a clear service notice. Native Argon2 hash/verification worked. Tracing includes the PostgreSQL driver, Prisma client runtime and bundled adapter/generated models, while excluding Prisma CLI/config, MySQL, deepmerge-ts, ESLint, braces and micromatch. Private environment/outbox files and build proxy/CA secrets were absent from the runtime artifact. These artifact checks do not erase the unresolved tooling dependency audit.
 
 ## Dependencies and remaining activation
 

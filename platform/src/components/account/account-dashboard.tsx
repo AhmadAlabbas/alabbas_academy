@@ -41,6 +41,9 @@ export function AccountDashboard({initialUser}: {initialUser: PublicAccountUser}
   const profile = useForm<z.input<typeof profileSchema>, unknown, z.output<typeof profileSchema>>({resolver: zodResolver(profileSchema), mode: 'onSubmit', defaultValues: {name: user.name ?? '', preferredLocale: user.preferredLocale, image: avatar}});
   const password = useForm<z.input<typeof changePasswordSchema>, unknown, z.output<typeof changePasswordSchema>>({resolver: zodResolver(changePasswordSchema), mode: 'onSubmit', defaultValues: {currentPassword: '', newPassword: ''}});
   const selectedAvatar = useWatch({control: profile.control, name: 'image'});
+  // Subscribe to dirty state so a background refresh can preserve in-progress edits.
+  const {dirtyFields} = profile.formState;
+  const resetProfile = profile.reset;
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -60,6 +63,7 @@ export function AccountDashboard({initialUser}: {initialUser: PublicAccountUser}
         return;
       }
       setUser(result.user);
+      resetProfile({name: result.user.name ?? '', preferredLocale: result.user.preferredLocale, image: avatars.find((item) => item.path === result.user?.image)?.path ?? '/avatars/sky.svg'}, {keepDirtyValues: Object.keys(dirtyFields).length > 0});
       setSessionFailure(null);
       setSessionChecking(false);
     }
@@ -77,7 +81,7 @@ export function AccountDashboard({initialUser}: {initialUser: PublicAccountUser}
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
     };
-  }, [initialUser.id, locale]);
+  }, [initialUser.id, locale, resetProfile, dirtyFields]);
 
   async function signOutAccount() {
     setSigningOut(true);

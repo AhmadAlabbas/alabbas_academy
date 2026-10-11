@@ -38,6 +38,8 @@ The development server listens on port **3001**. Public sample pages can render 
 
 In outbox mode, account messages are written privately to the ignored `.local/mail/outbox/` directory. Only inspect links for your local test accounts; these files contain single-use credentials. Account requests attempt queued delivery after responding. Run `npm run email:work` to process pending mail manually. Production rejects outbox mode and requires a real Resend sender.
 
+Run `npm run auth:cleanup` for bounded removal of old expired account records. It retains active credentials and rate windows, recent expiry history, pending email jobs and unrelated job types. Schedule the authenticated `POST /api/jobs/account-maintenance` endpoint on deployed hosts; retention and scheduling instructions are in [Vercel setup](docs/VERCEL_SETUP.md).
+
 If Docker is unavailable, use an existing local PostgreSQL server and set `DATABASE_URL` privately in `.env`; then run the same generation, migration, seed, and server commands. Do not use the development database credentials in production. Keep `.env` out of Git and do not place database passwords in `NEXT_PUBLIC_` variables.
 
 ## Validation

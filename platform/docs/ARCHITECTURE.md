@@ -20,6 +20,8 @@ Google is optional. New verified Google identities can register. Linking to an e
 
 Unsafe account requests require an explicit allowed origin and bounded JSON. Persistent rate limits use HMAC-derived identity keys and atomic database updates. Vercel's controlled client-address header is trusted on Vercel; other proxies require `AUTH_TRUSTED_PROXY=1` and must replace client-supplied forwarding headers. Private account/cart responses are not publicly cached.
 
+Configured authentication URLs must be origins without paths, queries or fragments; a path would change Auth.js's API route. Invalid primary settings fail closed instead of silently using a fallback. Language switching maps safe account return destinations to the new locale, including the cart. Profile refreshes update untouched form fields while preserving edits in progress.
+
 ## Cart persistence
 
 Guest storage contains whitelisted demonstration course identifiers. After login, selections merge into the account cart and the guest copy is cleared after confirmation. Account reads/mutations recheck publication, enrollment and database prices. Active/completed enrollments are excluded; revoked access does not imply ownership.
@@ -35,6 +37,8 @@ Registration, recovery and verification resend commit tokens and email jobs in o
 Resend is the production transport. Local development can explicitly choose `EMAIL_TRANSPORT=outbox`, writing private ignored files; production rejects this mode. Delivery runs after account responses, with a retry worker for pending jobs. Workers claim leased jobs with `SKIP LOCKED`, use provider idempotency keys, back off failures, and discard expired, consumed or exhausted jobs while clearing sensitive payloads.
 
 `POST /api/jobs/email` authenticates a separate `JOB_WORKER_SECRET` in a bearer header and delivers a bounded batch. A scheduler must support POST and that header; Vercel cron GET requests are not an equivalent integration. `npm run email:work` can process a batch on a trusted Node host. Never log transport credentials or account links/tokens.
+
+`POST /api/jobs/account-maintenance` uses the same worker authorization for retention cleanup; `npm run auth:cleanup` is the trusted-host alternative. Each run removes at most 500 rows per table, retaining rate counters for one day after expiry, tokens/session anchors for seven days after expiry, and completed account-email receipts for thirty days. Locked records are skipped; live rate windows, usable credentials, pending/running jobs and unrelated job kinds are preserved. PostgreSQL statement and transaction deadlines bound execution. No user, purchase, enrollment or audit records are removed.
 
 Keep `AUTH_SECRET` stable. Rotation invalidates sessions and makes previous queued payloads unreadable; drain the queue and plan recovery before rotation.
 

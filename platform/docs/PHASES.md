@@ -21,6 +21,7 @@ The foundation does not replace the Hostinger domain. Checkout, private lessons/
 - Account name, language, preset avatar and password settings.
 - Centralized account/verified-user authorization, persistent rate limits and bounded same-origin mutations.
 - Encrypted persisted account email jobs, Resend delivery, local development outbox and authenticated retry worker.
+- Bounded scheduled retention cleanup for expired rate counters, tokens/sessions and completed account-email receipts.
 - Tests for authorization, reset/verification expiry and reuse, session revocation, and OAuth ownership checks.
 
 This delivery also implements the guest/account cart portion of Phase 4. Database prices, publication/enrollment checks and a confirmed guest merge govern saved carts. Session changes, cross-tab behavior and concurrent mutations require validation.
@@ -62,5 +63,7 @@ Cart membership alone never grants learning access or represents a completed pur
 - Staging rollout, PostgreSQL backups, restoration test, monitoring and deployment documentation.
 - SEO, accessibility and security review; Lighthouse 95+ is a measured target.
 - Final integration and payment checks, domain cutover and documented rollback.
+
+The customer's hosting target is Hostinger **Cloud Startup**. Validate its hPanel Web App/Node.js support for this Next.js application before production rollout, and configure PostgreSQL and transactional email separately. The existing Hostinger MySQL database remains the migration source; it does not replace PostgreSQL. Keep Vercel as a review environment until the Hostinger deployment is verified. Customer launch follows completion of this phase, including real course content and tested purchases/access, rather than an earlier visual preview.
 
 Each phase ends with reviewed changes, appropriate validation and a commit. Production cutover requires a concrete release and hosting configuration. Preserve the `hostinger` deployment branch and PHP `public_html` until migration is complete.

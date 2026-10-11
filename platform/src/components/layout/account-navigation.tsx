@@ -55,16 +55,16 @@ export function AccountNavigation({mobile = false, onNavigate}: {mobile?: boolea
   async function logout() {
     setLeaving(true);
     setFailed(false);
-    try {
-      const result = await accountRequest('logout', {});
-      if (!result.ok) throw new Error('Logout unavailable');
-      await signOut({redirect: false});
-      notifyAccountChanged();
-      window.location.assign(new URL(`/${locale}`, window.location.origin).href);
-    } catch {
+    const result = await accountRequest('logout', {});
+    if (!result.ok) {
       setFailed(true);
       setLeaving(false);
+      return;
     }
+    setUser(null);
+    try {await signOut({redirect: false});} catch { /* The durable session has already been revoked. */ }
+    notifyAccountChanged();
+    window.location.assign(new URL(`/${locale}`, window.location.origin).href);
   }
 
   const wrapper = mobile ? 'flex flex-col gap-3 border-t border-line pt-4' : 'hidden items-center gap-3 lg:flex';

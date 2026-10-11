@@ -71,7 +71,7 @@ GitHub only lists manual workflows present on its default branch. If this workfl
 
 A maintainer can instead run `npm ci`, `npm run db:generate`, `npm run db:deploy`, and optionally `npm run db:seed` from `platform/` against the target database. Migrations are a separate release step, not part of a Vercel build or server startup. Demo seeding preserves existing course edits and does not create a default administrator.
 
-## 6. Run email retries
+## 6. Schedule email retries and account cleanup
 
 Account requests attempt delivery after responding. For interrupted/failed deliveries, configure a scheduler supporting authenticated POST:
 
@@ -81,6 +81,10 @@ Account requests attempt delivery after responding. For interrupted/failed deliv
 - Interval: approximately once per minute, within hosting/scheduler limits.
 
 Keep the header private; never put the worker key in a URL. Each request delivers a bounded batch with persisted retries. Vercel native cron sends GET and does not invoke this endpoint. A trusted Node host can instead run `npm run email:work` with the same private configuration.
+
+Add a second authenticated **POST** schedule for `/api/jobs/account-maintenance`, using the same private header, approximately once per hour. This endpoint removes at most 500 records from each account table per run. It retains rate-limit windows until one day after expiry, verification/recovery tokens and session anchors until seven days after expiry, and completed account-email receipts for thirty days. Active credentials, pending/running email jobs and other kinds of jobs are retained. Revoked sessions and consumed tokens are removed after their expiry and retention period, so cleanup does not weaken revocation or token reuse checks.
+
+Responses contain deletion counts only. If a table repeatedly reports 500 removals, increase the schedule frequency to catch up within provider limits. An unavailable response requires investigation rather than assuming cleanup completed. A trusted Node host can instead run `npm run auth:cleanup`. Neither scheduled job runs automatically merely because the code was deployed.
 
 ## 7. Verify live behavior
 

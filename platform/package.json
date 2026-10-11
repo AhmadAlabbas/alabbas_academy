@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:database": "node --import tsx scripts/test-database.ts",
     "email:work": "node --conditions=react-server --import tsx scripts/email-worker.ts",
+    "auth:cleanup": "node --conditions=react-server --import tsx scripts/account-maintenance.ts",
     "db:start": "docker compose up -d db",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
