@@ -3,10 +3,8 @@ name: Platform checks
 on:
   push:
     branches: [platform, staging]
-    paths: ["platform/**", ".github/workflows/platform-checks.yml", "package*.json", "server.js"]
   pull_request:
     branches: [platform, staging]
-    paths: ["platform/**", ".github/workflows/platform-checks.yml", "package*.json", "server.js"]
   workflow_dispatch:
 
 permissions:

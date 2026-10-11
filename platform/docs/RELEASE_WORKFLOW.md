@@ -6,11 +6,15 @@ This is the operating guide for the Node.js academy. Production is `https://alab
 
 GitHub **Actions → Platform checks → Release validation** runs on changes to `platform` or `staging`, and pull requests targeting either branch. It uses Node 22.18.0, a disposable MariaDB service, randomly generated test secrets, and reserved `example.test` email addresses. It has no production database, SMTP or payment credentials.
 
+The workflow intentionally has no file-path filter. When a check is required by branch protection, even a pull request editing only a root README must report its status; skipping the entire workflow would leave that pull request waiting for a check that cannot run.
+
 The workflow checks lint, unit tests, all six database integration suites in a temporary database, official migrations, demo seed, production dependency audit, a production build/type check, three Hostinger startup modes, relocated protected certificate PDFs, and bilingual desktop/mobile browser checks. It then builds with the staging setting and checks staging search isolation. Browser screenshots are retained for seven days. Playwright is installed outside the application; customers do not receive browser test tooling.
 
 These checks do not apply production migrations, send customer mail, charge a card or deploy Hostinger. The separate existing **Platform database release** workflow is not needed for this Hostinger database: GitHub's hosted runner cannot connect to Hostinger's `localhost` database. Apply migrations over the existing private SSH connection instead.
 
 **A green check cannot stop an already enabled Hostinger auto-deployment.** To make testing a release gate, protect `platform` in GitHub and require the **Release validation** check before merge. If the repository/plan exposes rulesets or branch protection, also require a pull request and block force pushes; confirm these settings allow your intended maintainer to merge. These are account settings and are not enabled by committing this file. Until they are configured, use Hostinger's manual deployment after checks pass. During this transition, a direct push to the current production branch can still start auto-deployment.
+
+For this public repository, open **Settings → Branches → Add classic branch protection rule** (or the equivalent branch ruleset). Use branch pattern `platform`, require a pull request, require status checks, select **Release validation**, and require the branch to be up to date before merging. Leave required reviewer approvals off if you are the only maintainer, since you cannot approve your own pull request. Disable force pushes/deletions, and apply the rule to administrators by enabling **Do not allow bypassing the above settings** where offered. Save the rule. Protect `staging` similarly when you are ready to require checks before deploying tests there. Confirm the selected required check belongs to **GitHub Actions**, if the interface asks for its source. These settings have to be saved in the authenticated GitHub account.
 
 ## One-time staging setup
 
