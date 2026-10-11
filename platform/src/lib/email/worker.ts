@@ -14,37 +14,21 @@ export function emailRetryDelay(attempts: number): number {
   return Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 15 * 60_000);
 }
 
-async function discardExpiredOrExhaustedJobs(database: PrismaClient, now: Date): Promise<number> {
-  const stale = new Date(now.getTime() - LEASE_MILLISECONDS);
-  return database.$executeRaw`
-    UPDATE "background_jobs"
-    SET "status" = 'DEAD_LETTER', "payload" = '{"type":"ACCOUNT_EMAIL_RECEIPT","outcome":"DISCARDED"}'::jsonb,
-        "lastError" = 'EMAIL_EXPIRED_OR_EXHAUSTED', "completedAt" = ${now},
-        "lockedAt" = NULL, "lockedBy" = NULL, "updatedAt" = ${now}
-    WHERE "kind" = ${ACCOUNT_EMAIL_JOB}
-      AND ("status" IN ('PENDING', 'FAILED') OR ("status" = 'RUNNING' AND "lockedAt" < ${stale}))
-      AND (("payload"->>'expiresAt') <= ${now.toISOString()} OR "attempts" >= "maximumAttempts")
-  `;
+async function discardExpiredOrExhaustedJobs(database:PrismaClient,now:Date):Promise<number>{
+ const stale=new Date(now.getTime()-LEASE_MILLISECONDS);
+ const jobs=await database.backgroundJob.findMany({where:{kind:ACCOUNT_EMAIL_JOB,OR:[{status:{in:['PENDING','FAILED']}},{status:'RUNNING',lockedAt:{lt:stale}}]},take:50});let discarded=0;
+ for(const job of jobs){let expired=false,code='EMAIL_EXPIRED_OR_EXHAUSTED';try{expired=Date.parse(openEmailPayload(job.payload).expiresAt)<=now.getTime()}catch{expired=true;code='EMAIL_PAYLOAD_UNREADABLE';}
+ if(expired||job.attempts>=job.maximumAttempts){discarded+=(await database.backgroundJob.updateMany({where:{id:job.id,status:job.status,attempts:job.attempts,lockedBy:job.lockedBy,...(job.status==='RUNNING'?{lockedAt:{lt:stale}}:{})},data:{status:'DEAD_LETTER',payload:{type:'ACCOUNT_EMAIL_RECEIPT',outcome:'DISCARDED'},completedAt:now,lockedBy:null,lockedAt:null,lastError:code}})).count;}}
+ return discarded;
 }
-
-async function claimEmailJob(database: PrismaClient, workerId: string, now: Date): Promise<BackgroundJob | null> {
-  const stale = new Date(now.getTime() - LEASE_MILLISECONDS);
-  const jobs = await database.$queryRaw<BackgroundJob[]>`
-    WITH candidate AS (
-      SELECT "id" FROM "background_jobs"
-      WHERE "kind" = ${ACCOUNT_EMAIL_JOB} AND "availableAt" <= ${now}
-        AND "attempts" < "maximumAttempts"
-        AND ("status" IN ('PENDING', 'FAILED') OR ("status" = 'RUNNING' AND "lockedAt" < ${stale}))
-      ORDER BY "availableAt", "createdAt"
-      FOR UPDATE SKIP LOCKED LIMIT 1
-    )
-    UPDATE "background_jobs" AS job
-    SET "status" = 'RUNNING', "attempts" = job."attempts" + 1,
-        "lockedAt" = ${now}, "lockedBy" = ${workerId}, "updatedAt" = ${now}
-    FROM candidate WHERE job."id" = candidate."id"
-    RETURNING job.*
-  `;
-  return jobs[0] ?? null;
+async function claimEmailJob(database:PrismaClient,workerId:string,now:Date):Promise<BackgroundJob|null>{
+ // One atomic conditional UPDATE claims ownership. A prior read inside MariaDB's
+ // repeatable-read transaction can cause error 1020 under concurrent claimers.
+ const stale=new Date(now.getTime()-LEASE_MILLISECONDS);
+ const found=await database.backgroundJob.findFirst({where:{kind:ACCOUNT_EMAIL_JOB,availableAt:{lte:now},OR:[{status:{in:['PENDING','FAILED']}},{status:'RUNNING',lockedAt:{lt:stale}}]},orderBy:[{availableAt:'asc'},{createdAt:'asc'}]});
+ if(!found)return null;
+ const claimed=await database.backgroundJob.updateMany({where:{id:found.id,attempts:found.attempts,status:found.status,...(found.status==='RUNNING'?{lockedAt:{lt:stale}}:{})},data:{status:'RUNNING',attempts:{increment:1},lockedAt:now,lockedBy:workerId}});
+ return claimed.count?database.backgroundJob.findUnique({where:{id:found.id}}):null;
 }
 
 async function tokenStillUsable(database: PrismaClient, payload: AccountEmailPayload, now: Date): Promise<boolean> {
@@ -57,7 +41,7 @@ async function tokenStillUsable(database: PrismaClient, payload: AccountEmailPay
   return Boolean(token && token.userId === payload.userId && token.user.status === "ACTIVE" && token.user.email === payload.to && (!("email" in token) || token.email === payload.to) && !token.consumedAt && token.expiresAt > now);
 }
 
-/** Process a bounded batch. PostgreSQL claims and leases prevent duplicate workers. */
+/** Deliver a bounded batch during requests. Atomic claims prevent simultaneous delivery. */
 export async function deliverPendingAccountEmails({limit = 10}: {limit?: number} = {}): Promise<AccountEmailWorkerResult> {
   if (!emailConfigurationReady()) throw new AccountEmailError("EMAIL_CONFIGURATION_UNAVAILABLE");
   const database = getDatabase();

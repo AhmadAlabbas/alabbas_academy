@@ -38,7 +38,8 @@
     "signOut": "Log out",
     "signingOut": "Logging out…",
     "signOutError": "Could not log out. Please try again.",
-    "cart": "Shopping cart"
+    "cart": "Shopping cart",
+    "myCourses": "My Courses"
   },
   "Footer": {
     "academy": "Alabbas Academy",
@@ -136,7 +137,7 @@
     "allLevels": "All levels",
     "sortLabel": "Sort courses",
     "recommended": "Recommended",
-    "newest": "Newest first",
+    "newest": "Newest",
     "priceLow": "Price: low to high",
     "priceHigh": "Price: high to low",
     "clearFilters": "Clear filters",
@@ -145,7 +146,8 @@
     "noResultsDescription": "No courses match these filters. Try a different search or explore all topics.",
     "sampleNotice": "Explore our sample course collection.",
     "filters": "Course filters",
-    "results": "Course results"
+    "results": "Course results",
+    "rating": "Highest rated"
   },
   "Course": {
     "overview": "About this course",
@@ -353,6 +355,7 @@
     "retry": "Try again",
     "ownedNotice": "A course you already have access to was removed from the cart.",
     "unavailableNotice": "A course is no longer available and could not be added to your cart.",
-    "limitNotice": "Your cart has reached the supported course or total limit. Remove a course before adding another."
+    "limitNotice": "Your cart has reached the supported course or total limit. Remove a course before adding another.",
+    "buyNow": "Buy now"
   }
 }

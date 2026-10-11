@@ -1,18 +1,5 @@
 import type {MetadataRoute} from 'next';
-import {sampleCourses} from '@/content/catalog';
-import {routing} from '@/i18n/routing';
+import {publicCatalog} from '@/lib/public-data';
 import {siteOrigin} from '@/lib/seo';
-
-export default function sitemap(): MetadataRoute.Sitemap {
-  const pages: MetadataRoute.Sitemap = [];
-  for (const path of ['', '/courses', '/about']) {
-    for (const locale of routing.locales) {
-      pages.push({url: `${siteOrigin}/${locale}${path}`, alternates: {languages: {ar: `${siteOrigin}/ar${path}`, en: `${siteOrigin}/en${path}`}}});
-    }
-  }
-  for (const course of sampleCourses) {
-    const languages = {ar: `${siteOrigin}/ar/courses/${encodeURIComponent(course.slug.ar)}`, en: `${siteOrigin}/en/courses/${course.slug.en}`};
-    for (const locale of routing.locales) pages.push({url: languages[locale], alternates: {languages}});
-  }
-  return pages;
-}
+export const dynamic='force-dynamic';
+export default async function sitemap():Promise<MetadataRoute.Sitemap>{const {courses}=await publicCatalog(),result:MetadataRoute.Sitemap=[];for(const path of ['','/courses','/about','/instructors','/contact','/privacy','/terms','/refund-policy'])for(const locale of ['ar','en'])result.push({url:`${siteOrigin}/${locale}${path}`,alternates:{languages:{ar:`${siteOrigin}/ar${path}`,en:`${siteOrigin}/en${path}`,'x-default':`${siteOrigin}/ar${path}`}}});for(const c of courses){const languages={ar:`${siteOrigin}/ar/courses/${encodeURIComponent(c.slug.ar)}`,en:`${siteOrigin}/en/courses/${encodeURIComponent(c.slug.en)}`};for(const locale of ['ar','en'] as const)result.push({url:languages[locale],alternates:{languages:{...languages,'x-default':languages.ar}}});}return result;}

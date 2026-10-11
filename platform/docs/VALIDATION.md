@@ -1,3 +1,5 @@
+> Historical PostgreSQL/Phase 2 report. For the current MySQL Hostinger release, see [HOSTINGER_VALIDATION.md](HOSTINGER_VALIDATION.md).
+
 # Phase 1 validation
 
 This document records the foundation release. See [the accounts and carts validation](PHASE2_VALIDATION.md) for the current Phase 2 results and activation requirements.

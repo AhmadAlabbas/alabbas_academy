@@ -1,6 +1,6 @@
 import "server-only";
 
-export type EmailTransport = "resend" | "outbox";
+export type EmailTransport = "smtp" | "resend" | "outbox";
 
 export class AccountEmailError extends Error {
   constructor(public readonly code: string) {
@@ -45,8 +45,12 @@ export function emailEncryptionSecret(): string {
 }
 
 export function configuredEmailTransport(): EmailTransport {
-  const transport = process.env.EMAIL_TRANSPORT || "resend";
+  const transport = process.env.EMAIL_TRANSPORT || "smtp";
   if (transport === "outbox" && process.env.NODE_ENV !== "production") return "outbox";
+  if (transport === "smtp") {
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !validSender(process.env.EMAIL_FROM || '') || ![465,587].includes(Number(process.env.SMTP_PORT || 465))) throw new AccountEmailError("EMAIL_PROVIDER_UNAVAILABLE");
+    return "smtp";
+  }
   if (transport !== "resend") throw new AccountEmailError("EMAIL_TRANSPORT_UNAVAILABLE");
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;

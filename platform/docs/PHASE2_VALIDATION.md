@@ -1,3 +1,5 @@
+> Historical PostgreSQL/Phase 2 report. For the current MySQL Hostinger release, see [HOSTINGER_VALIDATION.md](HOSTINGER_VALIDATION.md).
+
 # Accounts and carts: validation
 
 Validation date: 11 October 2026, Asia/Riyadh. These results cover the implemented account and cart release. They do not establish a live Vercel database connection, external email delivery, Google consent configuration, or payment processing.

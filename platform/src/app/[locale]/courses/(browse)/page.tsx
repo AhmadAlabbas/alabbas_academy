@@ -3,7 +3,7 @@ import {hasLocale} from 'next-intl';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
 import {notFound} from 'next/navigation';
 import {CatalogBrowser} from '@/components/ui/catalog-browser';
-import {categories, instructors, sampleCourses} from '@/content/catalog';
+import {publicCatalog} from '@/lib/public-data';
 import {routing} from '@/i18n/routing';
 import {pageMetadata} from '@/lib/seo';
 
@@ -23,6 +23,7 @@ export default async function CoursesPage({params, searchParams}: CoursesPagePro
   const {locale} = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  const {categories,instructors,courses:sampleCourses}=await publicCatalog();
   const [t, search] = await Promise.all([getTranslations('Catalog'), searchParams]);
   const initialCategory = typeof search.category === 'string' && categories.some((category) => category.slug === search.category)
     ? search.category

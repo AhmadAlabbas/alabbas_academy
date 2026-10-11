@@ -24,3 +24,5 @@ export function AddToCartButton({ courseId, className = '' }: { courseId: string
     {added ? t('added') : t('add')}
   </button>;
 }
+
+export function BuyNowButton({courseId}:{courseId:string}){const t=useTranslations('Cart');const {add,loading}=useCart();return <Link href="/cart" onClick={()=>{void add(courseId);}} aria-disabled={loading} className="button-secondary flex w-full items-center justify-center">{t('buyNow')}</Link>;}

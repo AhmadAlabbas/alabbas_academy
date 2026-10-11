@@ -1,179 +1,269 @@
-import type {Metadata} from 'next';
-import {ArrowDown, ArrowUpRight, BookOpen, ChevronDown, Clock3, ClipboardCheck, Globe2, Sparkles} from 'lucide-react';
-import {hasLocale} from 'next-intl';
-import {getTranslations, setRequestLocale} from 'next-intl/server';
-import {notFound} from 'next/navigation';
-import {CourseCard} from '@/components/ui/course-card';
-import {CourseCover} from '@/components/ui/course-cover';
-import {categories, instructors, sampleCourses, sampleCurricula} from '@/content/catalog';
-import {Link} from '@/i18n/navigation';
-import {routing, type Locale} from '@/i18n/routing';
-import {formatSAR} from '@/lib/money';
-import {findPublicCourse} from '@/lib/catalog';
-import {pageMetadata} from '@/lib/seo';
-import {AddToCartButton} from '@/components/cart/cart-controls';
-
-type CoursePageProps = {params: Promise<{locale: string; slug: string}>};
-
-// The sample catalog is generated in both languages. Unknown slugs must reach
-// the router's global 404 rather than throwing while streaming this page.
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) => sampleCourses.map((course) => ({locale, slug: course.slug[locale]})));
-}
-
-function findCourse(locale: Locale, slug: string) {
-  const course = findPublicCourse(sampleCourses, locale, slug);
-  if (!course) notFound();
-  return course;
-}
-
-export async function generateMetadata({params}: CoursePageProps): Promise<Metadata> {
-  const {locale, slug} = await params;
-  if (!hasLocale(routing.locales, locale)) notFound();
-  const course = findPublicCourse(sampleCourses, locale, slug);
-  if (!course) {
-    const t = await getTranslations({locale, namespace: 'NotFound'});
-    return {title: t('title'), description: t('description'), robots: {index: false, follow: false}};
+import { notFound } from "next/navigation";
+import Image from "next/image";
+import { getDatabase } from "@/lib/db";
+import { pageMetadata, siteOrigin } from "@/lib/seo";
+import { formatSAR } from "@/lib/money";
+import { Link } from "@/i18n/navigation";
+import { AddToCartButton, BuyNowButton } from "@/components/cart/cart-controls";
+import { Video } from "@/components/platform/player";
+import { CourseCover } from "@/components/ui/course-cover";
+import type { Locale } from "@/i18n/routing";
+async function courseFor(locale: string, slug: string) {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    slug = decodeURIComponent(slug).normalize("NFC");
+  } catch {
+    return null;
   }
-  const otherLocale = locale === 'ar' ? 'en' : 'ar';
-  return pageMetadata(locale, `/courses/${course.slug[locale]}`, course.title[locale], course.description[locale], `/courses/${course.slug[otherLocale]}`);
+  return getDatabase().course.findFirst({
+    where: {
+      [locale === "en" ? "slug_en" : "slug_ar"]: slug,
+      status: "PUBLISHED",
+    },
+    include: {
+      category: true,
+      instructors: { include: { instructor: true } },
+      sections: {
+        orderBy: { position: "asc" },
+        include: {
+          lessons: {
+            where: { isPublished: true },
+            orderBy: { position: "asc" },
+            select: { id: true, title_ar: true, title_en: true, minutes: true },
+          },
+        },
+      },
+      reviews: {
+        where: { status: "APPROVED" },
+        include: { user: { select: { name: true } } },
+        take: 20,
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
 }
-
-export default async function CoursePage({params}: CoursePageProps) {
-  const {locale, slug} = await params;
-  if (!hasLocale(routing.locales, locale)) notFound();
-  setRequestLocale(locale);
-  const course = findCourse(locale, slug);
-  const [t, common, catalog] = await Promise.all([getTranslations('Course'), getTranslations('Common'), getTranslations('Catalog')]);
-  const category = categories.find((item) => item.slug === course.categorySlug);
-  const instructor = instructors.find((item) => item.id === course.instructorId);
-  const sections = sampleCurricula[course.id] ?? [];
-  const lessons = sections.flatMap((section) => section.lessons);
-  const previewLesson = lessons.find((lesson) => lesson.preview && lesson.body);
-  const levelText = (level: string) => common(level === 'BEGINNER' ? 'beginner' : level === 'INTERMEDIATE' ? 'intermediate' : 'allLevels');
-  const related = sampleCourses.filter((item) => item.id !== course.id).slice(0, 3);
-
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale; slug: string }>;
+}) {
+  const { locale, slug } = await params,
+    c = await courseFor(locale, slug);
+  if (!c) return { title: "Course unavailable", robots: { index: false } };
+  return pageMetadata(
+    locale,
+    `/courses/${locale === "ar" ? c.slug_ar : c.slug_en}`,
+    locale === "ar" ? c.title_ar : c.title_en,
+    (locale === "ar" ? c.seo_ar : c.seo_en) ||
+      (locale === "ar" ? c.description_ar : c.description_en).slice(0, 160),
+    `/courses/${locale === "ar" ? c.slug_en : c.slug_ar}`,
+  );
+}
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ locale: Locale; slug: string }>;
+}) {
+  const { locale, slug } = await params,
+    ar = locale === "ar",
+    course = await courseFor(locale, slug);
+  if (!course) notFound();
+  const title = ar ? course.title_ar : course.title_en,
+    description = ar ? course.description_ar : course.description_en,
+    courseUrl = `${siteOrigin}/${locale}/courses/${encodeURIComponent(ar ? course.slug_ar : course.slug_en)}`;
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: title,
+    description,
+    inLanguage: locale,
+    provider: {
+      "@type": "Organization",
+      name: "Alabbas Academy",
+      url: siteOrigin,
+    },
+    offers: {
+      "@type": "Offer",
+      price: course.priceHalalas / 100,
+      priceCurrency: "SAR",
+      availability: "https://schema.org/InStock",
+      url: courseUrl,
+    },
+    ...(course.reviews.length
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue:
+              course.reviews.reduce((n, r) => n + r.rating, 0) /
+              course.reviews.length,
+            reviewCount: course.reviews.length,
+          },
+        }
+      : {}),
+  };
   return (
-    <div className="container-shell pb-20 pt-8 sm:pb-24 sm:pt-10">
-      <nav aria-label={common('breadcrumbs')} className="mb-8 text-xs text-muted">
-        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <li><Link href="/" className="hover:text-navy">{common('home')}</Link></li>
-          <li aria-hidden="true">/</li>
-          <li><Link href="/courses" className="hover:text-navy">{common('allCourses')}</Link></li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page" className="text-navy">{course.title[locale]}</li>
-        </ol>
+    <div className="container-shell py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            schema,
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: ar ? "الرئيسية" : "Home",
+                  item: `${siteOrigin}/${locale}`,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: ar ? "الدورات" : "Courses",
+                  item: `${siteOrigin}/${locale}/courses`,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 3,
+                  name: title,
+                  item: courseUrl,
+                },
+              ],
+            },
+          ]).replace(/</g, "\\u003c"),
+        }}
+      />
+      <nav className="mb-6 text-sm text-muted">
+        <Link href="/">{ar ? "الرئيسية" : "Home"}</Link> /{" "}
+        <Link href="/courses">{ar ? "الدورات" : "Courses"}</Link> / {title}
       </nav>
-
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
-        <div className="min-w-0">
-          <header className="pb-8">
-            <div className="mb-5 flex flex-wrap items-center gap-3 text-xs font-medium">
-              <Link href={{pathname: '/courses', query: {category: course.categorySlug}}} className="rounded-full bg-skysoft px-4 py-2 text-[#22677f]">{category?.title[locale]}</Link>
-              <span className="rounded-full bg-goldsoft px-4 py-2">{t('sampleLabel')}</span>
-            </div>
-            <h1 className="mb-5 text-[clamp(2rem,4vw,3.2rem)] font-semibold leading-[1.4] tracking-tight">{course.title[locale]}</h1>
-            <p className="section-copy max-w-2xl">{course.description[locale]}</p>
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-muted">
-              <span className="flex items-center gap-2"><BookOpen aria-hidden="true" className="size-4" />{common('lessonCount', {count: lessons.length})}</span>
-              <span className="flex items-center gap-2"><Clock3 aria-hidden="true" className="size-4" />{common('durationMinutes', {count: course.minutes})}</span>
-              <span className="flex items-center gap-2"><Globe2 aria-hidden="true" className="size-4" />{t('arabicEnglish')}</span>
-            </div>
-          </header>
-
-          <section aria-labelledby="course-overview" className="card mb-6 p-6 sm:p-8">
-            <p className="eyebrow mb-2">{t('overview')}</p>
-            <h2 id="course-overview" className="mb-5 text-xl font-semibold">{t('whatYouLearn')}</h2>
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {sections.flatMap((section) => section.lessons.slice(-2)).map((lesson) => (
-                <li key={lesson.id} className="flex gap-3 text-sm leading-7"><span className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-skysoft"><Sparkles aria-hidden="true" className="size-3.5 text-[#22677f]" /></span>{lesson.title[locale]}</li>
-              ))}
-            </ul>
-          </section>
-
-          {previewLesson?.body && (
-            <section aria-labelledby="preview-heading" className="mb-6 rounded-3xl border border-[#d1e8f1] bg-[#eef8fc] p-6 sm:p-8">
-              <span className="mb-4 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#22677f]">{t('freePreview')}</span>
-              <h2 id="preview-heading" className="mb-3 text-xl font-semibold">{previewLesson.title[locale]}</h2>
-              <p className="text-sm leading-8 text-[#456176]">{previewLesson.body[locale]}</p>
-            </section>
-          )}
-
-          <section id="curriculum" aria-labelledby="curriculum-heading" className="card scroll-mt-28 p-6 sm:p-8">
-            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-              <h2 id="curriculum-heading" className="text-2xl font-semibold">{t('curriculum')}</h2>
-              <p className="text-xs text-muted">{t('sectionCount', {count: sections.length})} · {common('lessonCount', {count: lessons.length})} · {t('examCount', {count: sections.length})}</p>
-            </div>
-            <div className="space-y-3">
-              {sections.map((section, index) => (
-                <details key={section.id} open={index === 0} className="group overflow-hidden rounded-2xl border border-line">
-                  <summary className="flex min-h-20 cursor-pointer list-none items-center gap-4 bg-canvas px-4 py-4 text-sm font-medium sm:px-5 [&::-webkit-details-marker]:hidden">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-xs text-muted">{new Intl.NumberFormat(locale).format(index + 1)}</span>
-                    <span className="flex-1 leading-7">{section.title[locale]}</span>
-                    <ChevronDown aria-hidden="true" className="size-4 shrink-0 transition-transform group-open:rotate-180" />
-                  </summary>
-                  <ol className="divide-y divide-line px-4 sm:px-5">
-                    {section.lessons.map((lesson) => (
-                      <li key={lesson.id} className="flex items-start gap-3 py-4 text-xs">
-                        <BookOpen aria-hidden="true" className="mt-1 size-4 shrink-0 text-muted" />
-                        <div className="min-w-0 flex-1"><p className="leading-6">{lesson.title[locale]}</p>{lesson.preview && <span className="mt-1 inline-block text-[11px] text-[#22677f]">{t('freePreview')}</span>}</div>
-                        <span className="pt-1 text-[11px] text-muted">{common('durationMinutes', {count: lesson.minutes})}</span>
-                      </li>
-                    ))}
-                    <li className="flex items-start gap-3 py-4 text-xs">
-                      <ClipboardCheck aria-hidden="true" className="mt-1 size-4 shrink-0 text-[#22677f]" />
-                      <div className="min-w-0 flex-1"><p className="leading-6">{section.exam.title[locale]}</p><span className="mt-1 inline-block text-[11px] text-muted">{t('exam')}</span></div>
-                      <span className="pt-1 text-[11px] text-muted">{t('questionCount', {count: section.exam.questionCount})}</span>
-                    </li>
-                  </ol>
-                </details>
-              ))}
-            </div>
-          </section>
-
-          {instructor && (
-            <section aria-labelledby="instructor-heading" className="card mt-6 p-6 sm:p-8">
-              <h2 id="instructor-heading" className="mb-6 text-xl font-semibold">{t('instructor')}</h2>
-              <div className="flex items-start gap-5">
-                <span aria-hidden="true" className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-goldsoft text-xl font-semibold">{instructor.name[locale].slice(0, 1)}</span>
-                <div><h3 className="mb-2 font-semibold">{instructor.name[locale]}</h3><p className="text-sm leading-8 text-muted">{instructor.bio[locale]}</p></div>
-              </div>
-            </section>
-          )}
-        </div>
-
-        <aside aria-labelledby="course-details-heading" className="card overflow-hidden lg:sticky lg:top-28">
-          <CourseCover cover={course.cover} className="h-60" />
-          <div className="p-6">
-            <h2 id="course-details-heading" className="sr-only">{t('details')}</h2>
-            <p className="mb-2 text-xs text-muted">{t('priceLabel')}</p>
-            <p className="mb-6 text-3xl font-semibold tracking-tight">{formatSAR(course.priceHalalas, locale)}</p>
-            <AddToCartButton courseId={course.id} className="w-full" />
-            <a href="#curriculum" className="button-secondary mt-3 w-full">{t('viewCurriculum')}<ArrowDown aria-hidden="true" className="size-4" /></a>
-            <p className="mt-4 text-xs leading-7 text-muted">{t('sampleDescription')}</p>
-            <dl className="mt-6 space-y-4 border-t border-line pt-6 text-xs">
-              <div className="flex justify-between gap-4"><dt className="text-muted">{t('levelLabel')}</dt><dd className="text-end font-medium">{levelText(course.level)}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-muted">{t('durationLabel')}</dt><dd className="text-end font-medium">{common('durationMinutes', {count: course.minutes})}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-muted">{t('lessons')}</dt><dd className="text-end font-medium">{common('lessonCount', {count: lessons.length})}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-muted">{t('quizzes')}</dt><dd className="text-end font-medium">{t('examCount', {count: sections.length})}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-muted">{t('languageLabel')}</dt><dd className="text-end font-medium">{t('arabicEnglish')}</dd></div>
-            </dl>
-            <Link href="/courses" className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-[#22677f]">{common('backToCourses')}<ArrowUpRight aria-hidden="true" className="logical-arrow size-4" /></Link>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-6">
+          <div className="card p-7">
+            <p className="mb-4 text-sm text-[#22677f]">
+              {ar ? course.category.title_ar : course.category.title_en}
+            </p>
+            <h1 className="text-3xl font-semibold leading-relaxed sm:text-4xl">
+              {title}
+            </h1>
+            <p className="mt-5 whitespace-pre-wrap leading-8 text-muted">
+              {description}
+            </p>
+            {course.isSample && (
+              <p className="mt-5 rounded-xl bg-goldsoft p-3 text-sm">
+                {ar
+                  ? "دورة نموذجية بمحتوى تجريبي."
+                  : "Sample course with demonstration content."}
+              </p>
+            )}
           </div>
+          <Video url={course.previewUrl} title={title} />
+          <section className="card p-6">
+            <h2 className="mb-4 text-xl font-semibold">
+              {ar ? "ما ستتعلمه" : "What you will learn"}
+            </h2>
+            <p className="whitespace-pre-wrap leading-8">
+              {ar ? course.outcomes_ar : course.outcomes_en}
+            </p>
+            <h3 className="mb-3 mt-6 font-semibold">
+              {ar ? "المتطلبات" : "Requirements"}
+            </h3>
+            <p className="whitespace-pre-wrap leading-8">
+              {ar ? course.requirements_ar : course.requirements_en}
+            </p>
+          </section>
+          <section className="card p-6">
+            <h2 className="mb-4 text-xl font-semibold">
+              {ar ? "محتوى الدورة" : "Curriculum"}
+            </h2>
+            {course.sections.map((s) => (
+              <details
+                className="mb-3 rounded-xl border border-line p-4"
+                key={s.id}
+              >
+                <summary className="font-semibold">
+                  {ar ? s.title_ar : s.title_en}
+                </summary>
+                <ul className="mt-4 space-y-4">
+                  {s.lessons.map((l) => (
+                    <li
+                      className="flex justify-between gap-4 text-sm"
+                      key={l.id}
+                    >
+                      <span>{ar ? l.title_ar : l.title_en}</span>
+                      <span>
+                        {l.minutes} {ar ? "دقيقة" : "min"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </section>
+          {course.instructors.map(({ instructor: i }) => (
+            <section className="card p-6" key={i.id}>
+              <h2 className="mb-3 text-xl font-semibold">
+                {ar ? i.name_ar : i.name_en}
+              </h2>
+              <p className="whitespace-pre-wrap leading-8 text-muted">
+                {ar ? i.bio_ar : i.bio_en}
+              </p>
+            </section>
+          ))}
+          <section className="card p-6">
+            <h2 className="mb-4 text-xl font-semibold">
+              {ar ? "تقييمات المتعلمين" : "Learner reviews"}
+            </h2>
+            {course.reviews.map((r) => (
+              <article className="mb-4 border-t border-line pt-4" key={r.id}>
+                <b>
+                  {r.user.name} — {r.rating}/5
+                </b>
+                <p className="mt-2 whitespace-pre-wrap leading-7">{r.body}</p>
+              </article>
+            ))}
+            {!course.reviews.length && (
+              <p className="text-muted">
+                {ar
+                  ? "لا توجد تقييمات منشورة بعد."
+                  : "No published reviews yet."}
+              </p>
+            )}
+          </section>
+        </div>
+        <aside className="card space-y-5 p-6 lg:sticky lg:top-28">
+          {course.thumbnailUrl ? (
+            <Image
+              sizes="(min-width: 1024px) 340px, 100vw"
+              src={course.thumbnailUrl}
+              alt=""
+              width={600}
+              height={350}
+              className="aspect-[1.7] w-full rounded-xl object-cover"
+            />
+          ) : (
+            <CourseCover cover={course.coverStyle as "design"} />
+          )}
+          <h2 className="text-3xl font-semibold">
+            {formatSAR(course.priceHalalas, locale)}
+          </h2>
+          {course.compareAtHalalas &&
+            course.compareAtHalalas > course.priceHalalas && (
+              <del className="text-muted">
+                {formatSAR(course.compareAtHalalas, locale)}
+              </del>
+            )}
+          <AddToCartButton courseId={course.key} className="w-full" />
+          <BuyNowButton courseId={course.key} />
+          <p className="text-sm leading-7 text-muted">
+            {ar
+              ? "دروس فيديو وملفات واختبارات وشهادة بعد الإتمام."
+              : "Video lessons, files, exams and a certificate upon completion."}
+          </p>
         </aside>
       </div>
-
-      <section aria-labelledby="related-heading" className="pt-16 sm:pt-20">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
-          <div><p className="eyebrow mb-2">{catalog('eyebrow')}</p><h2 id="related-heading" className="section-title">{t('relatedTitle')}</h2><p className="section-copy mt-3">{t('relatedDescription')}</p></div>
-          <Link href="/courses" className="button-secondary">{common('allCourses')}<ArrowUpRight aria-hidden="true" className="logical-arrow size-4" /></Link>
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {related.map((item) => <CourseCard key={item.id} course={item} locale={locale} category={categories.find((category) => category.slug === item.categorySlug)} instructor={instructors.find((person) => person.id === item.instructorId)} labels={{view: common('viewCourse'), sample: common('sampleCourse'), lessons: common('lessonCount', {count: item.lessonCount}), duration: common('durationMinutes', {count: item.minutes}), level: levelText(item.level)}} />)}
-        </div>
-      </section>
     </div>
   );
 }

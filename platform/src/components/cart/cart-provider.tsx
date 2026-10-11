@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { sampleCourses } from '@/content/catalog';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import type {Course} from '@/content/catalog';
 import { reconcileCart, sanitizeGuestIds, type CartItem, type CartRejection, type CartSummary } from '@/lib/cart/domain';
 import { GUEST_CART_KEY, readGuestCart, writeGuestCart } from '@/lib/cart/storage';
 
@@ -12,11 +12,6 @@ type CartContextValue = {
   loading: boolean; error: string | null; notice: CartRejection['reason'] | null;
   add: (courseId: string) => Promise<void>; remove: (courseId: string) => Promise<void>; refresh: () => Promise<void>;
 };
-const knownIds = new Set(sampleCourses.map(course => course.id));
-const guestCandidates = sampleCourses.map(course => ({
-  item: { courseId: course.id, title: course.title, slug: course.slug, cover: course.cover, priceHalalas: course.priceHalalas },
-  published: true, owned: false, currency: 'SAR',
-}));
 const emptyCart: CartSummary = { items: [], count: 0, subtotalHalalas: 0, currency: 'SAR' };
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -30,7 +25,13 @@ async function cartRequest(method: 'GET' | 'POST' | 'DELETE', body?: unknown): P
   return result as ApiCart;
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({ children,catalog }: { children: ReactNode;catalog:Course[] }) {
+const knownIds = useMemo(()=>new Set(catalog.map(course => course.id)),[catalog]);
+const guestCandidates = useMemo(()=>catalog.map(course => ({
+  item: { courseId: course.id, title: course.title, slug: course.slug, cover: course.cover, priceHalalas: course.priceHalalas },
+  published: true, owned: false, currency: 'SAR',
+})),[catalog]);
+
   const [cart, setCart] = useState(emptyCart);
   const [user, setUser] = useState<CartUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // Some browser privacy modes throw when accessing the storage property itself.
     try { return readGuestCart(window.localStorage, knownIds, guestRef.current); }
     catch { return [...guestRef.current]; }
-  }, []);
+  }, [knownIds]);
 
   const notifyAccountCart = useCallback(() => {
     try { window.localStorage.setItem('alabbas.cart.changed', String(Date.now())); }
@@ -59,14 +60,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     userRef.current = null;
     setUser(null);
     setCart(reconcileCart(guestRef.current, guestCandidates).cart);
-  }, []);
+  }, [knownIds,guestCandidates]);
 
   const saveGuest = useCallback((ids: string[]) => {
     const safeIds = sanitizeGuestIds(ids, knownIds);
     applyGuest(safeIds);
     try { writeGuestCart(window.localStorage, safeIds); }
     catch { setError('STORAGE_UNAVAILABLE'); }
-  }, [applyGuest]);
+  }, [applyGuest,knownIds]);
 
   const applyAccount = useCallback((result: ApiCart) => {
     userRef.current = result.user;
@@ -161,7 +162,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (failure instanceof Error && failure.message === 'UNAUTHORIZED') applyGuest(readBrowserGuest());
     } finally { setLoading(false); }
     });
-  }, [applyAccount, applyGuest, enqueue, saveGuest, notifyAccountCart, readBrowserGuest]);
+  }, [applyAccount, applyGuest, enqueue, saveGuest, notifyAccountCart, readBrowserGuest, knownIds]);
 
   const remove = useCallback((courseId: string) => {
     const generation = accountGeneration.current;

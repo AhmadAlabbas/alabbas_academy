@@ -18,7 +18,7 @@ const secret='integration-only-auth-secret'.repeat(3);
 const password='Test-academy-password-123';
 const nextPassword='Next-academy-password-456';
 
-describe.skipIf(!enabled)('account PostgreSQL invariants',()=>{
+describe.skipIf(!enabled)('account MySQL invariants',()=>{
  beforeAll(()=>{vi.stubEnv('DATABASE_URL',configured!);vi.stubEnv('AUTH_SECRET',secret);vi.stubEnv('AUTH_URL','http://localhost:3001');vi.stubEnv('NEXT_PUBLIC_APP_URL','http://localhost:3001');vi.stubEnv('EMAIL_TRANSPORT','outbox');});
  afterEach(async()=>{
    const db=getDatabase();

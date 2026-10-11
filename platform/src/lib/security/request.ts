@@ -1,7 +1,7 @@
 import type {ZodType} from 'zod';
 import {AccountError} from '@/lib/auth/errors';
 
-const maximumBytes = 8192;
+const defaultMaximumBytes = 8192;
 
 /** Own JSON mutations require an explicit same-origin browser request. */
 export function assertSameOrigin(request: Request): void {
@@ -21,7 +21,7 @@ export function assertSameOrigin(request: Request): void {
   if (fetchSite && !['same-origin', 'none'].includes(fetchSite)) throw new AccountError('FORBIDDEN', 403);
 }
 
-export async function readJson<T>(request: Request, schema: ZodType<T>): Promise<T> {
+export async function readJson<T>(request: Request, schema: ZodType<T>, maximumBytes = defaultMaximumBytes): Promise<T> {
   assertSameOrigin(request);
   if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw new AccountError('INVALID_INPUT', 400);
   const declared = request.headers.get('content-length');

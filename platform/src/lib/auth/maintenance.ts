@@ -1,8 +1,5 @@
 import "server-only";
-import {getDatabase} from "@/lib/db";
-import {ACCOUNT_EMAIL_JOB} from "@/lib/email/queue";
-
-const DAY = 86_400_000;
+import { getDatabase } from "@/lib/db";
 export type AccountMaintenanceResult = {
   rateLimits: number;
   verificationTokens: number;
@@ -10,65 +7,79 @@ export type AccountMaintenanceResult = {
   sessions: number;
   emailReceipts: number;
 };
-
-/**
- * Remove inactive account records in bounded, repeatable batches. Expired rate
- * windows are kept for one day, tokens/sessions for seven days after expiry,
- * and completed email receipts for thirty days. Active and recently expired
- * records are retained. Revoked/consumed records expire naturally before removal.
- */
-export async function cleanAccountRecords({limit = 500}: {limit?: number} = {}): Promise<AccountMaintenanceResult> {
-  const batch = Math.min(500, Math.max(1, Math.floor(Number.isFinite(limit) ? limit : 500)));
-  const now = Date.now();
-  const rateCutoff = new Date(now - DAY);
-  const accountCutoff = new Date(now - 7 * DAY);
-  const receiptCutoff = new Date(now - 30 * DAY);
-  return getDatabase().$transaction(async (database) => {
-    // Query and transaction deadlines bound a scheduled request even with a backlog.
-    await database.$executeRaw`SET LOCAL statement_timeout = '5s'`;
-    const rateLimits = await database.$executeRaw`
-      WITH candidates AS (
-        SELECT "key" FROM "auth_rate_limits" WHERE "expiresAt" < ${rateCutoff}
-        ORDER BY "expiresAt", "key" FOR UPDATE SKIP LOCKED LIMIT ${batch}
-      )
-      DELETE FROM "auth_rate_limits" WHERE "key" IN (SELECT "key" FROM candidates)
-        AND "expiresAt" < ${rateCutoff}
-    `;
-    const verificationTokens = await database.$executeRaw`
-      WITH candidates AS (
-        SELECT "id" FROM "email_verification_tokens" WHERE "expiresAt" < ${accountCutoff}
-        ORDER BY "expiresAt", "id" FOR UPDATE SKIP LOCKED LIMIT ${batch}
-      )
-      DELETE FROM "email_verification_tokens" WHERE "id" IN (SELECT "id" FROM candidates)
-        AND "expiresAt" < ${accountCutoff}
-    `;
-    const resetTokens = await database.$executeRaw`
-      WITH candidates AS (
-        SELECT "id" FROM "password_reset_tokens" WHERE "expiresAt" < ${accountCutoff}
-        ORDER BY "expiresAt", "id" FOR UPDATE SKIP LOCKED LIMIT ${batch}
-      )
-      DELETE FROM "password_reset_tokens" WHERE "id" IN (SELECT "id" FROM candidates)
-        AND "expiresAt" < ${accountCutoff}
-    `;
-    const sessions = await database.$executeRaw`
-      WITH candidates AS (
-        SELECT "id" FROM "sessions" WHERE "expires" < ${accountCutoff}
-        ORDER BY "expires", "id" FOR UPDATE SKIP LOCKED LIMIT ${batch}
-      )
-      DELETE FROM "sessions" WHERE "id" IN (SELECT "id" FROM candidates)
-        AND "expires" < ${accountCutoff}
-    `;
-    const emailReceipts = await database.$executeRaw`
-      WITH candidates AS (
-        SELECT "id" FROM "background_jobs"
-        WHERE "kind" = ${ACCOUNT_EMAIL_JOB} AND "status" IN ('SUCCEEDED', 'DEAD_LETTER')
-          AND "completedAt" < ${receiptCutoff}
-        ORDER BY "completedAt", "id" FOR UPDATE SKIP LOCKED LIMIT ${batch}
-      )
-      DELETE FROM "background_jobs" WHERE "id" IN (SELECT "id" FROM candidates)
-        AND "kind" = ${ACCOUNT_EMAIL_JOB} AND "status" IN ('SUCCEEDED', 'DEAD_LETTER')
-        AND "completedAt" < ${receiptCutoff}
-    `;
-    return {rateLimits, verificationTokens, resetTokens, sessions, emailReceipts};
-  }, {maxWait: 2_000, timeout: 10_000});
+export async function cleanAccountRecords({
+  limit = 500,
+}: { limit?: number } = {}): Promise<AccountMaintenanceResult> {
+  const take = Math.min(
+    500,
+    Math.max(1, Math.floor(Number.isFinite(limit) ? limit : 500)),
+  );
+  const db = getDatabase();
+  const old = new Date(Date.now() - 7 * 86400000);
+  return db.$transaction(
+    async (tx) => {
+      // MariaDB 10.6+/MySQL 8: skip live locks instead of stalling account requests.
+      const rateCutoff = new Date(Date.now() - 86400000),
+        receiptCutoff = new Date(Date.now() - 30 * 86400000);
+      const rates = await tx.$queryRaw<
+        { key: string }[]
+      >`SELECT \`key\` FROM auth_rate_limits WHERE expiresAt < ${rateCutoff} ORDER BY expiresAt LIMIT ${take} FOR UPDATE SKIP LOCKED`;
+      const verify = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM email_verification_tokens WHERE expiresAt < ${old} ORDER BY expiresAt LIMIT ${take} FOR UPDATE SKIP LOCKED`;
+      const reset = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM password_reset_tokens WHERE expiresAt < ${old} ORDER BY expiresAt LIMIT ${take} FOR UPDATE SKIP LOCKED`;
+      const sessions = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM sessions WHERE expires < ${old} ORDER BY expires LIMIT ${take} FOR UPDATE SKIP LOCKED`;
+      const jobs = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM background_jobs WHERE kind='ACCOUNT_EMAIL' AND status IN ('SUCCEEDED','DEAD_LETTER') AND completedAt < ${receiptCutoff} ORDER BY completedAt LIMIT ${take} FOR UPDATE SKIP LOCKED`;
+      return {
+        rateLimits: (
+          await tx.authRateLimit.deleteMany({
+            where: {
+              key: { in: rates.map((x) => x.key) },
+              expiresAt: { lt: new Date(Date.now() - 86400000) },
+            },
+          })
+        ).count,
+        verificationTokens: (
+          await tx.emailVerificationToken.deleteMany({
+            where: {
+              id: { in: verify.map((x) => x.id) },
+              expiresAt: { lt: old },
+            },
+          })
+        ).count,
+        resetTokens: (
+          await tx.passwordResetToken.deleteMany({
+            where: {
+              id: { in: reset.map((x) => x.id) },
+              expiresAt: { lt: old },
+            },
+          })
+        ).count,
+        sessions: (
+          await tx.session.deleteMany({
+            where: {
+              id: { in: sessions.map((x) => x.id) },
+              expires: { lt: old },
+            },
+          })
+        ).count,
+        emailReceipts: (
+          await tx.backgroundJob.deleteMany({
+            where: {
+              id: { in: jobs.map((x) => x.id) },
+              kind: "ACCOUNT_EMAIL",
+              status: { in: ["SUCCEEDED", "DEAD_LETTER"] },
+            },
+          })
+        ).count,
+      };
+    },
+    { timeout: 10000 },
+  );
 }

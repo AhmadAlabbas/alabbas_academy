@@ -8,7 +8,7 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   // Generating the client does not require database credentials. Commands that
-  // connect to PostgreSQL fail explicitly when DATABASE_URL is missing.
+  // connect to MySQL fail explicitly when DATABASE_URL is missing.
   datasource: {
     url: process.env.DATABASE_URL,
   },

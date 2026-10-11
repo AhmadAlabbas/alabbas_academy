@@ -17,7 +17,7 @@ export type Category = {
   tone: CategoryTone;
 };
 
-export type Instructor = {
+export type Instructor = {imageUrl?:string|null;
   id: string;
   name: LocalizedText;
   bio: LocalizedText;
@@ -33,10 +33,13 @@ export type Course = {
   instructorId: string;
   level: CourseLevel;
   priceHalalas: number;
+  compareAtHalalas?: number | null;
   minutes: number;
   lessonCount: number;
   cover: CourseCover;
   featured: boolean;
+  languages?: string; createdAt?: string; rating?: number; thumbnailUrl?:string|null;
+  isSample?:boolean;
 };
 
 export type Lesson = {

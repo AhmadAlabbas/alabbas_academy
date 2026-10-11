@@ -24,7 +24,7 @@ export async function getCurrentUser():Promise<AccountUser|null> {
     const anchor = await getDatabase().session.findUnique({where:{id:session.user.sessionId},include:{user:{include:{roles:{include:{role:true}}}}}});
     if (!anchor || anchor.userId !== session.user.id || anchor.revokedAt || anchor.expires.getTime() <= Date.now() || anchor.user.status !== 'ACTIVE' || anchor.sessionVersion !== session.user.sessionVersion || anchor.user.sessionVersion !== session.user.sessionVersion) return null;
     const user = anchor.user;
-    return {id:user.id,name:user.name,email:user.email,emailVerified:user.emailVerified,image:user.image,preferredLocale:user.preferredLocale,roles:user.roles.map(item=>item.role.slug),sessionId:anchor.id,sessionVersion:user.sessionVersion};
+    return {id:user.id,name:user.name,email:user.email,emailVerified:user.emailVerified,image:user.image,preferredLocale:user.preferredLocale === 'en' ? 'en' : 'ar',roles:user.roles.map(item=>item.role.slug),sessionId:anchor.id,sessionVersion:user.sessionVersion};
   } catch { return null; }
 }
 

@@ -4,142 +4,19 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-}
-
-enum Locale {
-  ar
-  en
-}
-
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  ANONYMIZED
-}
-
-enum CourseStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-enum CourseLevel {
-  BEGINNER
-  INTERMEDIATE
-  ALL_LEVELS
-}
-
-enum LessonKind {
-  VIDEO
-  ARTICLE
-  RESOURCE
-  LIVE
-}
-
-enum AssetKind {
-  IMAGE
-  VIDEO
-  FILE
-}
-
-enum AssetStatus {
-  PENDING
-  PROCESSING
-  READY
-  FAILED
-}
-
-enum VideoProvider {
-  BUNNY
-  YOUTUBE
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  CANCELED
-  PARTIALLY_REFUNDED
-  REFUNDED
-}
-
-enum PaymentStatus {
-  CREATED
-  PENDING
-  AUTHORIZED
-  CAPTURED
-  FAILED
-  CANCELED
-  REFUNDED
-}
-
-enum RefundStatus {
-  PENDING
-  SUCCEEDED
-  FAILED
-}
-
-enum CouponKind {
-  PERCENTAGE
-  FIXED_AMOUNT
-}
-
-enum ReservationStatus {
-  RESERVED
-  REDEEMED
-  RELEASED
-  EXPIRED
-}
-
-enum EnrollmentStatus {
-  ACTIVE
-  COMPLETED
-  REVOKED
-}
-
-enum QuestionKind {
-  SINGLE_CHOICE
-  MULTIPLE_CHOICE
-  TRUE_FALSE
-}
-
-enum AttemptStatus {
-  IN_PROGRESS
-  SUBMITTED
-  GRADED
-  EXPIRED
-}
-
-enum ReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum ContentStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-enum JobStatus {
-  PENDING
-  RUNNING
-  SUCCEEDED
-  FAILED
-  DEAD_LETTER
+  provider = "mysql"
 }
 
 // User-facing profiles and authentication secrets are intentionally separate.
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String    @unique
+  id                 String    @id @default(cuid()) @db.VarChar(191)
+  name               String? @db.VarChar(191)
+  email              String    @unique @db.VarChar(191)
   emailVerified      DateTime?
-  image              String?
-  passwordHash       String?
-  preferredLocale    Locale    @default(ar)
-  status             UserStatus @default(ACTIVE)
+  image              String? @db.VarChar(191)
+  passwordHash       String? @db.VarChar(191)
+  preferredLocale    String    @default("ar") @db.VarChar(191)
+  status             String @default("ACTIVE") @db.VarChar(191)
   sessionVersion     Int       @default(0)
   passwordChangedAt  DateTime?
   lastLoginAt        DateTime?
@@ -163,10 +40,10 @@ model User {
 }
 
 model Role {
-  id          String     @id @default(cuid())
-  slug        String     @unique
-  name        String
-  permissions String[]   @default([])
+  id          String     @id @default(cuid()) @db.VarChar(191)
+  slug        String     @unique @db.VarChar(191)
+  name        String @db.VarChar(191)
+  permissions Json @default("[]")
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   users       UserRole[]
@@ -175,8 +52,8 @@ model Role {
 }
 
 model UserRole {
-  userId    String
-  roleId    String
+  userId    String @db.VarChar(191)
+  roleId    String @db.VarChar(191)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -189,18 +66,18 @@ model UserRole {
 // Account fields follow the Auth.js Prisma adapter contract. Google linking must
 // prove ownership; provider emails alone must never merge existing identities.
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
+  id                String  @id @default(cuid()) @db.VarChar(191)
+  userId            String @db.VarChar(191)
+  type              String @db.VarChar(191)
+  provider          String @db.VarChar(191)
+  providerAccountId String @db.VarChar(191)
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
-  token_type        String?
-  scope             String?
+  token_type        String? @db.VarChar(191)
+  scope             String? @db.VarChar(191)
   id_token          String? @db.Text
-  session_state     String?
+  session_state     String? @db.VarChar(191)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -212,9 +89,9 @@ model Account {
 
 // Phase 2's session adapter must hash the browser token before storage.
 model Session {
-  id               String   @id @default(cuid())
+  id               String   @id @default(cuid()) @db.VarChar(191)
   tokenHash        String   @unique @db.Char(64)
-  userId           String
+  userId           String @db.VarChar(191)
   expires          DateTime
   revokedAt        DateTime?
   sessionVersion   Int
@@ -228,9 +105,9 @@ model Session {
 }
 
 model EmailVerificationToken {
-  id         String    @id @default(cuid())
-  userId     String
-  email      String
+  id         String    @id @default(cuid()) @db.VarChar(191)
+  userId     String @db.VarChar(191)
+  email      String @db.VarChar(191)
   tokenHash  String    @unique @db.Char(64)
   expiresAt  DateTime
   consumedAt DateTime?
@@ -243,8 +120,8 @@ model EmailVerificationToken {
 }
 
 model PasswordResetToken {
-  id         String    @id @default(cuid())
-  userId     String
+  id         String    @id @default(cuid()) @db.VarChar(191)
+  userId     String @db.VarChar(191)
   tokenHash  String    @unique @db.Char(64)
   expiresAt  DateTime
   consumedAt DateTime?
@@ -269,11 +146,15 @@ model AuthRateLimit {
 }
 
 model Category {
-  id           String   @id @default(cuid())
-  key          String   @unique
-  parentId     String?
+ title_ar String @default("")
+ title_en String @default("")
+ description_ar String @default("") @db.Text
+ description_en String @default("") @db.Text
+  id           String   @id @default(cuid()) @db.VarChar(191)
+  key          String   @unique @db.VarChar(191)
+  parentId     String? @db.VarChar(191)
   position     Int      @default(0)
-  tone         String   @default("sky")
+  tone         String   @default("sky") @db.VarChar(191)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -287,11 +168,11 @@ model Category {
 }
 
 model CategoryTranslation {
-  id          String   @id @default(cuid())
-  categoryId  String
-  locale      Locale
-  slug        String
-  title       String
+  id          String   @id @default(cuid()) @db.VarChar(191)
+  categoryId  String @db.VarChar(191)
+  locale      String @db.VarChar(191)
+  slug        String @db.VarChar(191)
+  title       String @db.VarChar(191)
   description String   @db.Text
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
@@ -301,8 +182,10 @@ model CategoryTranslation {
 }
 
 model Tag {
-  id           String           @id @default(cuid())
-  key          String           @unique
+  title_ar String @default("") @db.VarChar(191)
+  title_en String @default("") @db.VarChar(191)
+  id           String           @id @default(cuid()) @db.VarChar(191)
+  key          String           @unique @db.VarChar(191)
   translations TagTranslation[]
   courses      CourseTag[]
 
@@ -310,11 +193,11 @@ model Tag {
 }
 
 model TagTranslation {
-  id     String @id @default(cuid())
-  tagId  String
-  locale Locale
-  slug   String
-  title  String
+  id     String @id @default(cuid()) @db.VarChar(191)
+  tagId  String @db.VarChar(191)
+  locale String @db.VarChar(191)
+  slug   String @db.VarChar(191)
+  title  String @db.VarChar(191)
   tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([tagId, locale])
@@ -323,8 +206,8 @@ model TagTranslation {
 }
 
 model CourseTag {
-  courseId String
-  tagId    String
+  courseId String @db.VarChar(191)
+  tagId    String @db.VarChar(191)
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Restrict)
 
@@ -334,11 +217,16 @@ model CourseTag {
 }
 
 model Instructor {
-  id           String   @id @default(cuid())
-  key          String   @unique
-  initials     String
-  imageAssetId String?
-  websiteUrl   String?
+ name_ar String @default("")
+ name_en String @default("")
+ bio_ar String @default("") @db.Text
+ bio_en String @default("") @db.Text
+ imageUrl String? @db.Text
+  id           String   @id @default(cuid()) @db.VarChar(191)
+  key          String   @unique @db.VarChar(191)
+  initials     String @db.VarChar(191)
+  imageAssetId String? @db.VarChar(191)
+  websiteUrl   String? @db.VarChar(191)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -350,10 +238,10 @@ model Instructor {
 }
 
 model InstructorTranslation {
-  id           String @id @default(cuid())
-  instructorId String
-  locale       Locale
-  name         String
+  id           String @id @default(cuid()) @db.VarChar(191)
+  instructorId String @db.VarChar(191)
+  locale       String @db.VarChar(191)
+  name         String @db.VarChar(191)
   bio          String @db.Text
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
@@ -362,8 +250,8 @@ model InstructorTranslation {
 }
 
 model CourseInstructor {
-  courseId     String
-  instructorId String
+  courseId     String @db.VarChar(191)
+  instructorId String @db.VarChar(191)
   position     Int @default(0)
   course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Restrict)
@@ -374,17 +262,33 @@ model CourseInstructor {
 }
 
 model Course {
-  id                String       @id @default(cuid())
-  key               String       @unique
-  categoryId        String
-  status            CourseStatus @default(DRAFT)
-  level             CourseLevel  @default(BEGINNER)
+ title_ar String @default("")
+ title_en String @default("")
+ slug_ar String @unique
+ slug_en String @unique
+ description_ar String @default("") @db.Text
+ description_en String @default("") @db.Text
+ outcomes_ar String @default("") @db.Text
+ outcomes_en String @default("") @db.Text
+ requirements_ar String @default("") @db.Text
+ requirements_en String @default("") @db.Text
+ seo_ar String @default("") @db.Text
+ seo_en String @default("") @db.Text
+ previewUrl String? @db.Text
+ thumbnailUrl String? @db.Text
+ isSample Boolean @default(false)
+ languages String @default("ar,en")
+  id                String       @id @default(cuid()) @db.VarChar(191)
+  key               String       @unique @db.VarChar(191)
+  categoryId        String @db.VarChar(191)
+  status            String @default("DRAFT") @db.VarChar(191)
+  level             String  @default("BEGINNER") @db.VarChar(191)
   currency          String       @default("SAR") @db.Char(3)
   priceHalalas      Int
   compareAtHalalas  Int?
   minutes           Int          @default(0)
-  coverStyle        String       @default("design")
-  coverAssetId      String?
+  coverStyle        String       @default("design") @db.VarChar(191)
+  coverAssetId      String? @db.VarChar(191)
   featured          Boolean      @default(false)
   publishedAt       DateTime?
   archivedAt        DateTime?
@@ -409,16 +313,16 @@ model Course {
 }
 
 model CourseTranslation {
-  id               String @id @default(cuid())
-  courseId         String
-  locale           Locale
-  slug             String
-  title            String
+  id               String @id @default(cuid()) @db.VarChar(191)
+  courseId         String @db.VarChar(191)
+  locale           String @db.VarChar(191)
+  slug             String @db.VarChar(191)
+  title            String @db.VarChar(191)
   description      String @db.Text
-  learningOutcomes String[] @default([])
-  requirements     String[] @default([])
-  metaTitle        String?
-  metaDescription  String?
+  learningOutcomes Json @default("[]")
+  requirements     Json @default("[]")
+  metaTitle        String? @db.VarChar(191)
+  metaDescription  String? @db.VarChar(191)
   course           Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, locale])
@@ -427,8 +331,10 @@ model CourseTranslation {
 }
 
 model Section {
-  id           String @id @default(cuid())
-  courseId     String
+ title_ar String @default("")
+ title_en String @default("")
+  id           String @id @default(cuid()) @db.VarChar(191)
+  courseId     String @db.VarChar(191)
   position     Int
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -442,10 +348,10 @@ model Section {
 }
 
 model SectionTranslation {
-  id        String @id @default(cuid())
-  sectionId String
-  locale    Locale
-  title     String
+  id        String @id @default(cuid()) @db.VarChar(191)
+  sectionId String @db.VarChar(191)
+  locale    String @db.VarChar(191)
+  title     String @db.VarChar(191)
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, locale])
@@ -453,14 +359,21 @@ model SectionTranslation {
 }
 
 model Lesson {
-  id           String @id @default(cuid())
-  sectionId    String
+ title_ar String @default("")
+ title_en String @default("")
+ body_ar String @default("") @db.Text
+ body_en String @default("") @db.Text
+ videoUrl String? @db.Text
+ videoFileId String?
+ notesEnabled Boolean @default(true)
+  id           String @id @default(cuid()) @db.VarChar(191)
+  sectionId    String @db.VarChar(191)
   position     Int
-  kind         LessonKind @default(ARTICLE)
+  kind         String @default("ARTICLE") @db.VarChar(191)
   minutes      Int @default(0)
   isPreview    Boolean @default(false)
   isPublished  Boolean @default(false)
-  videoAssetId String?
+  videoAssetId String? @db.VarChar(191)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   section      Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -475,10 +388,10 @@ model Lesson {
 }
 
 model LessonTranslation {
-  id       String @id @default(cuid())
-  lessonId String
-  locale   Locale
-  title    String
+  id       String @id @default(cuid()) @db.VarChar(191)
+  lessonId String @db.VarChar(191)
+  locale   String @db.VarChar(191)
+  title    String @db.VarChar(191)
   body     String? @db.Text
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
@@ -487,16 +400,16 @@ model LessonTranslation {
 }
 
 model MediaAsset {
-  id                 String @id @default(cuid())
-  kind               AssetKind
-  status             AssetStatus @default(PENDING)
-  storageKey         String @unique
-  originalName       String
-  mimeType           String
+  id                 String @id @default(cuid()) @db.VarChar(191)
+  kind               String @db.VarChar(191)
+  status             String @default("PENDING") @db.VarChar(191)
+  storageKey         String @unique @db.VarChar(191)
+  originalName       String @db.VarChar(191)
+  mimeType           String @db.VarChar(191)
   bytes              BigInt
   checksumSha256     String? @db.Char(64)
   isPublic           Boolean @default(false)
-  uploadedById       String?
+  uploadedById       String? @db.VarChar(191)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   uploadedBy         User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -512,12 +425,12 @@ model MediaAsset {
 }
 
 model VideoAsset {
-  id              String @id @default(cuid())
-  mediaAssetId    String @unique
-  provider        VideoProvider
-  providerVideoId String
+  id              String @id @default(cuid()) @db.VarChar(191)
+  mediaAssetId    String @unique @db.VarChar(191)
+  provider        String @db.VarChar(191)
+  providerVideoId String @db.VarChar(191)
   durationSeconds Int?
-  status          AssetStatus @default(PENDING)
+  status          String @default("PENDING") @db.VarChar(191)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   mediaAsset      MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
@@ -528,12 +441,12 @@ model VideoAsset {
 }
 
 model LessonAttachment {
-  id           String @id @default(cuid())
-  lessonId     String
-  mediaAssetId String
+  id           String @id @default(cuid()) @db.VarChar(191)
+  lessonId     String @db.VarChar(191)
+  mediaAssetId String @db.VarChar(191)
   position     Int @default(0)
-  labelAr      String
-  labelEn      String
+  labelAr      String @db.VarChar(191)
+  labelEn      String @db.VarChar(191)
   lesson       Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
 
@@ -543,8 +456,8 @@ model LessonAttachment {
 
 // Guest identifiers are random opaque tokens; store their SHA-256 digests.
 model Cart {
-  id             String @id @default(cuid())
-  userId         String? @unique
+  id             String @id @default(cuid()) @db.VarChar(191)
+  userId         String? @unique @db.VarChar(191)
   guestTokenHash String? @unique @db.Char(64)
   expiresAt      DateTime?
   createdAt      DateTime @default(now())
@@ -557,9 +470,9 @@ model Cart {
 }
 
 model CartItem {
-  id        String @id @default(cuid())
-  cartId    String
-  courseId  String
+  id        String @id @default(cuid()) @db.VarChar(191)
+  cartId    String @db.VarChar(191)
+  courseId  String @db.VarChar(191)
   createdAt DateTime @default(now())
   cart      Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
   course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -570,20 +483,22 @@ model CartItem {
 
 // Order prices are immutable checkout snapshots, never joined to current prices.
 model Order {
-  id                  String @id @default(cuid())
-  number              String @unique
-  userId              String
-  status              OrderStatus @default(PENDING)
+ provider String @default("manual")
+ confirmationSentAt DateTime?
+  id                  String @id @default(cuid()) @db.VarChar(191)
+  number              String @unique @db.VarChar(191)
+  userId              String @db.VarChar(191)
+  status              String @default("PENDING") @db.VarChar(191)
   currency            String @default("SAR") @db.Char(3)
   subtotalHalalas      Int
   discountHalalas      Int @default(0)
   taxHalalas           Int @default(0)
   totalHalalas         Int
-  buyerEmail           String
-  buyerName            String
-  locale               Locale
-  couponCodeSnapshot   String?
-  checkoutKey          String @unique
+  buyerEmail           String @db.VarChar(191)
+  buyerName            String @db.VarChar(191)
+  locale               String @db.VarChar(191)
+  couponCodeSnapshot   String? @db.VarChar(191)
+  checkoutKey          String @unique @db.VarChar(191)
   expiresAt            DateTime?
   paidAt               DateTime?
   createdAt            DateTime @default(now())
@@ -601,11 +516,11 @@ model Order {
 }
 
 model OrderItem {
-  id                String @id @default(cuid())
-  orderId           String
-  courseId          String
-  titleAr           String
-  titleEn           String
+  id                String @id @default(cuid()) @db.VarChar(191)
+  orderId           String @db.VarChar(191)
+  courseId          String @db.VarChar(191)
+  titleAr           String @db.VarChar(191)
+  titleEn           String @db.VarChar(191)
   unitPriceHalalas  Int
   discountHalalas   Int @default(0)
   taxHalalas        Int @default(0)
@@ -622,16 +537,16 @@ model OrderItem {
 }
 
 model PaymentAttempt {
-  id                   String @id @default(cuid())
-  orderId              String
-  provider             String @default("moyasar")
-  providerPaymentId    String?
-  idempotencyKey       String @unique
-  status               PaymentStatus @default(CREATED)
+  id                   String @id @default(cuid()) @db.VarChar(191)
+  orderId              String @db.VarChar(191)
+  provider             String @default("moyasar") @db.VarChar(191)
+  providerPaymentId    String? @db.VarChar(191)
+  idempotencyKey       String @unique @db.VarChar(191)
+  status               String @default("CREATED") @db.VarChar(191)
   currency             String @default("SAR") @db.Char(3)
   amountHalalas        Int
-  failureCode          String?
-  failureMessage       String?
+  failureCode          String? @db.VarChar(191)
+  failureMessage       String? @db.VarChar(191)
   verifiedAt           DateTime?
   capturedAt           DateTime?
   createdAt            DateTime @default(now())
@@ -648,16 +563,16 @@ model PaymentAttempt {
 // Only authenticated/verified webhooks may enter fulfillment. Unique provider
 // event identifiers plus processing transactions make delivery duplicate-safe.
 model WebhookEvent {
-  id               String @id @default(cuid())
-  provider         String
-  providerEventId  String
-  eventType        String
+  id               String @id @default(cuid()) @db.VarChar(191)
+  provider         String @db.VarChar(191)
+  providerEventId  String @db.VarChar(191)
+  eventType        String @db.VarChar(191)
   payloadHash      String @db.Char(64)
   payload          Json
   verifiedAt       DateTime?
   processedAt      DateTime?
   attempts         Int @default(0)
-  lastError        String?
+  lastError        String? @db.VarChar(191)
   receivedAt       DateTime @default(now())
 
   @@unique([provider, providerEventId])
@@ -666,14 +581,14 @@ model WebhookEvent {
 }
 
 model Refund {
-  id               String @id @default(cuid())
-  orderId          String
-  paymentAttemptId String
-  providerRefundId String?
-  idempotencyKey   String @unique
+  id               String @id @default(cuid()) @db.VarChar(191)
+  orderId          String @db.VarChar(191)
+  paymentAttemptId String @db.VarChar(191)
+  providerRefundId String? @db.VarChar(191)
+  idempotencyKey   String @unique @db.VarChar(191)
   amountHalalas    Int
-  status           RefundStatus @default(PENDING)
-  reason           String
+  status           String @default("PENDING") @db.VarChar(191)
+  reason           String @db.VarChar(191)
   verifiedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -687,9 +602,9 @@ model Refund {
 }
 
 model RefundItem {
-  id            String @id @default(cuid())
-  refundId      String
-  orderItemId   String
+  id            String @id @default(cuid()) @db.VarChar(191)
+  refundId      String @db.VarChar(191)
+  orderItemId   String @db.VarChar(191)
   amountHalalas Int
   revokeAccess  Boolean @default(true)
   refund        Refund @relation(fields: [refundId], references: [id], onDelete: Restrict)
@@ -701,9 +616,9 @@ model RefundItem {
 }
 
 model Coupon {
-  id                    String @id @default(cuid())
-  code                  String @unique
-  kind                  CouponKind
+  id                    String @id @default(cuid()) @db.VarChar(191)
+  code                  String @unique @db.VarChar(191)
+  kind                  String @db.VarChar(191)
   percentageBasisPoints Int?
   amountHalalas         Int?
   minimumOrderHalalas   Int @default(0)
@@ -724,8 +639,8 @@ model Coupon {
 }
 
 model CouponCourse {
-  couponId String
-  courseId String
+  couponId String @db.VarChar(191)
+  courseId String @db.VarChar(191)
   coupon   Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
 
@@ -735,11 +650,11 @@ model CouponCourse {
 }
 
 model CouponReservation {
-  id             String @id @default(cuid())
-  couponId       String
-  orderId        String @unique
-  userId         String
-  status         ReservationStatus @default(RESERVED)
+  id             String @id @default(cuid()) @db.VarChar(191)
+  couponId       String @db.VarChar(191)
+  orderId        String @unique @db.VarChar(191)
+  userId         String @db.VarChar(191)
+  status         String @default("RESERVED") @db.VarChar(191)
   discountHalalas Int
   expiresAt      DateTime
   createdAt      DateTime @default(now())
@@ -754,10 +669,10 @@ model CouponReservation {
 }
 
 model CouponRedemption {
-  id              String @id @default(cuid())
-  couponId        String
-  orderId         String @unique
-  userId          String
+  id              String @id @default(cuid()) @db.VarChar(191)
+  couponId        String @db.VarChar(191)
+  orderId         String @unique @db.VarChar(191)
+  userId          String @db.VarChar(191)
   discountHalalas Int
   createdAt       DateTime @default(now())
   coupon          Coupon @relation(fields: [couponId], references: [id], onDelete: Restrict)
@@ -769,12 +684,12 @@ model CouponRedemption {
 }
 
 model Enrollment {
-  id                 String @id @default(cuid())
-  userId             String
-  courseId           String
-  orderItemId        String? @unique
-  status             EnrollmentStatus @default(ACTIVE)
-  source             String @default("purchase")
+  id                 String @id @default(cuid()) @db.VarChar(191)
+  userId             String @db.VarChar(191)
+  courseId           String @db.VarChar(191)
+  orderItemId        String? @unique @db.VarChar(191)
+  status             String @default("ACTIVE") @db.VarChar(191)
+  source             String @default("purchase") @db.VarChar(191)
   enrolledAt         DateTime @default(now())
   completedAt        DateTime?
   revokedAt          DateTime?
@@ -791,9 +706,10 @@ model Enrollment {
 }
 
 model LessonProgress {
-  id                String @id @default(cuid())
-  enrollmentId      String
-  lessonId          String
+ note String @default("") @db.Text
+  id                String @id @default(cuid()) @db.VarChar(191)
+  enrollmentId      String @db.VarChar(191)
+  lessonId          String @db.VarChar(191)
   watchedSeconds    Int @default(0)
   lastPositionSeconds Int @default(0)
   completedAt       DateTime?
@@ -807,9 +723,13 @@ model LessonProgress {
 }
 
 model Exam {
-  id                  String @id @default(cuid())
-  courseId            String
-  sectionId           String?
+ title_ar String @default("")
+ title_en String @default("")
+ instructions_ar String @default("") @db.Text
+ instructions_en String @default("") @db.Text
+  id                  String @id @default(cuid()) @db.VarChar(191)
+  courseId            String @db.VarChar(191)
+  sectionId           String? @db.VarChar(191)
   position            Int @default(0)
   isPublished         Boolean @default(false)
   isRequired          Boolean @default(false)
@@ -830,10 +750,10 @@ model Exam {
 }
 
 model ExamTranslation {
-  id           String @id @default(cuid())
-  examId       String
-  locale       Locale
-  title        String
+  id           String @id @default(cuid()) @db.VarChar(191)
+  examId       String @db.VarChar(191)
+  locale       String @db.VarChar(191)
+  title        String @db.VarChar(191)
   instructions String? @db.Text
   exam         Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
 
@@ -842,10 +762,14 @@ model ExamTranslation {
 }
 
 model ExamQuestion {
-  id           String @id @default(cuid())
-  examId       String
+ prompt_ar String @default("") @db.Text
+ prompt_en String @default("") @db.Text
+ explanation_ar String @default("") @db.Text
+ explanation_en String @default("") @db.Text
+  id           String @id @default(cuid()) @db.VarChar(191)
+  examId       String @db.VarChar(191)
   position     Int
-  kind         QuestionKind @default(SINGLE_CHOICE)
+  kind         String @default("SINGLE_CHOICE") @db.VarChar(191)
   points       Int @default(1)
   exam         Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
   translations QuestionTranslation[]
@@ -856,9 +780,9 @@ model ExamQuestion {
 }
 
 model QuestionTranslation {
-  id          String @id @default(cuid())
-  questionId  String
-  locale      Locale
+  id          String @id @default(cuid()) @db.VarChar(191)
+  questionId  String @db.VarChar(191)
+  locale      String @db.VarChar(191)
   prompt      String @db.Text
   explanation String? @db.Text
   question    ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -869,8 +793,10 @@ model QuestionTranslation {
 
 // Correct answers remain server-only; never include isCorrect in learner APIs.
 model QuestionOption {
-  id           String @id @default(cuid())
-  questionId   String
+ label_ar String @default("") @db.Text
+ label_en String @default("") @db.Text
+  id           String @id @default(cuid()) @db.VarChar(191)
+  questionId   String @db.VarChar(191)
   position     Int
   isCorrect    Boolean @default(false)
   question     ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -881,9 +807,9 @@ model QuestionOption {
 }
 
 model OptionTranslation {
-  id       String @id @default(cuid())
-  optionId String
-  locale   Locale
+  id       String @id @default(cuid()) @db.VarChar(191)
+  optionId String @db.VarChar(191)
+  locale   String @db.VarChar(191)
   label    String @db.Text
   option   QuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
@@ -893,13 +819,14 @@ model OptionTranslation {
 
 // Snapshot prevents editing a live exam from changing an already-started attempt.
 model ExamAttempt {
-  id             String @id @default(cuid())
-  enrollmentId   String
-  examId         String
+  id             String @id @default(cuid()) @db.VarChar(191)
+  enrollmentId   String @db.VarChar(191)
+  examId         String @db.VarChar(191)
   number         Int
+  passingBasisPoints Int @default(7000)
   examVersion    Int
-  locale         Locale
-  status         AttemptStatus @default(IN_PROGRESS)
+  locale         String @db.VarChar(191)
+  status         String @default("IN_PROGRESS") @db.VarChar(191)
   questionSnapshot Json
   answerSnapshot Json?
   scorePoints    Int?
@@ -918,16 +845,16 @@ model ExamAttempt {
 }
 
 model Certificate {
-  id             String @id @default(cuid())
-  enrollmentId   String @unique
-  serial         String @unique
+  id             String @id @default(cuid()) @db.VarChar(191)
+  enrollmentId   String @unique @db.VarChar(191)
+  serial         String @unique @db.VarChar(191)
   verificationHash String @unique @db.Char(64)
-  learnerName    String
-  courseTitleAr  String
-  courseTitleEn  String
+  learnerName    String @db.VarChar(191)
+  courseTitleAr  String @db.VarChar(191)
+  courseTitleEn  String @db.VarChar(191)
   issuedAt       DateTime @default(now())
   revokedAt      DateTime?
-  mediaAssetId   String?
+  mediaAssetId   String? @db.VarChar(191)
   enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
   mediaAsset     MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
 
@@ -935,14 +862,14 @@ model Certificate {
 }
 
 model Review {
-  id        String @id @default(cuid())
-  userId    String
-  courseId  String
+  id        String @id @default(cuid()) @db.VarChar(191)
+  userId    String @db.VarChar(191)
+  courseId  String @db.VarChar(191)
   rating    Int
-  title     String?
+  title     String? @db.VarChar(191)
   body      String @db.Text
-  locale    Locale
-  status    ReviewStatus @default(PENDING)
+  locale    String @db.VarChar(191)
+  status    String @default("PENDING") @db.VarChar(191)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -954,9 +881,13 @@ model Review {
 }
 
 model Page {
-  id           String @id @default(cuid())
-  key          String @unique
-  status       ContentStatus @default(DRAFT)
+ title_ar String @default("")
+ title_en String @default("")
+ body_ar String @default("") @db.LongText
+ body_en String @default("") @db.LongText
+  id           String @id @default(cuid()) @db.VarChar(191)
+  key          String @unique @db.VarChar(191)
+  status       String @default("DRAFT") @db.VarChar(191)
   publishedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -967,13 +898,13 @@ model Page {
 }
 
 model PageTranslation {
-  id              String @id @default(cuid())
-  pageId          String
-  locale          Locale
-  slug            String
-  title           String
-  metaTitle       String?
-  metaDescription String?
+  id              String @id @default(cuid()) @db.VarChar(191)
+  pageId          String @db.VarChar(191)
+  locale          String @db.VarChar(191)
+  slug            String @db.VarChar(191)
+  title           String @db.VarChar(191)
+  metaTitle       String? @db.VarChar(191)
+  metaDescription String? @db.VarChar(191)
   page            Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@unique([pageId, locale])
@@ -982,10 +913,14 @@ model PageTranslation {
 }
 
 model ContentBlock {
-  id           String @id @default(cuid())
-  pageId       String
-  key          String
-  kind         String
+ title_ar String @default("")
+ title_en String @default("")
+ body_ar String @default("") @db.Text
+ body_en String @default("") @db.Text
+  id           String @id @default(cuid()) @db.VarChar(191)
+  pageId       String @db.VarChar(191)
+  key          String @db.VarChar(191)
+  kind         String @db.VarChar(191)
   position     Int
   settings     Json
   page         Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
@@ -997,9 +932,9 @@ model ContentBlock {
 }
 
 model ContentBlockTranslation {
-  id      String @id @default(cuid())
-  blockId String
-  locale  Locale
+  id      String @id @default(cuid()) @db.VarChar(191)
+  blockId String @db.VarChar(191)
+  locale  String @db.VarChar(191)
   content Json
   block   ContentBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
 
@@ -1008,8 +943,12 @@ model ContentBlockTranslation {
 }
 
 model Faq {
-  id           String @id @default(cuid())
-  key          String @unique
+ question_ar String @default("") @db.Text
+ question_en String @default("") @db.Text
+ answer_ar String @default("") @db.Text
+ answer_en String @default("") @db.Text
+  id           String @id @default(cuid()) @db.VarChar(191)
+  key          String @unique @db.VarChar(191)
   position     Int @default(0)
   isPublished  Boolean @default(false)
   translations FaqTranslation[]
@@ -1018,10 +957,10 @@ model Faq {
 }
 
 model FaqTranslation {
-  id       String @id @default(cuid())
-  faqId    String
-  locale   Locale
-  question String
+  id       String @id @default(cuid()) @db.VarChar(191)
+  faqId    String @db.VarChar(191)
+  locale   String @db.VarChar(191)
+  question String @db.VarChar(191)
   answer   String @db.Text
   faq      Faq @relation(fields: [faqId], references: [id], onDelete: Cascade)
 
@@ -1030,11 +969,13 @@ model FaqTranslation {
 }
 
 model Testimonial {
-  id           String @id @default(cuid())
-  name         String
+ quote_ar String @default("") @db.Text
+ quote_en String @default("") @db.Text
+  id           String @id @default(cuid()) @db.VarChar(191)
+  name         String @db.VarChar(191)
   consentAt    DateTime
-  source       String?
-  imageAssetId String?
+  source       String? @db.VarChar(191)
+  imageAssetId String? @db.VarChar(191)
   position     Int @default(0)
   isPublished  Boolean @default(false)
   imageAsset   MediaAsset? @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
@@ -1044,11 +985,11 @@ model Testimonial {
 }
 
 model TestimonialTranslation {
-  id            String @id @default(cuid())
-  testimonialId String
-  locale        Locale
+  id            String @id @default(cuid()) @db.VarChar(191)
+  testimonialId String @db.VarChar(191)
+  locale        String @db.VarChar(191)
   quote         String @db.Text
-  designation   String?
+  designation   String? @db.VarChar(191)
   testimonial   Testimonial @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
 
   @@unique([testimonialId, locale])
@@ -1056,10 +997,10 @@ model TestimonialTranslation {
 }
 
 model NavigationItem {
-  id           String @id @default(cuid())
-  key          String @unique
-  location     String
-  parentId     String?
+  id           String @id @default(cuid()) @db.VarChar(191)
+  key          String @unique @db.VarChar(191)
+  location     String @db.VarChar(191)
+  parentId     String? @db.VarChar(191)
   position     Int @default(0)
   isVisible    Boolean @default(true)
   parent       NavigationItem? @relation("NavigationTree", fields: [parentId], references: [id], onDelete: Restrict)
@@ -1071,11 +1012,11 @@ model NavigationItem {
 }
 
 model NavigationTranslation {
-  id               String @id @default(cuid())
-  navigationItemId String
-  locale           Locale
-  label            String
-  href             String
+  id               String @id @default(cuid()) @db.VarChar(191)
+  navigationItemId String @db.VarChar(191)
+  locale           String @db.VarChar(191)
+  label            String @db.VarChar(191)
+  href             String @db.VarChar(191)
   item             NavigationItem @relation(fields: [navigationItemId], references: [id], onDelete: Cascade)
 
   @@unique([navigationItemId, locale])
@@ -1084,7 +1025,7 @@ model NavigationTranslation {
 
 // Settings must contain public configuration only. Secrets belong in runtime env.
 model Setting {
-  key       String @id
+  key       String @id @db.VarChar(191)
   value     Json
   updatedAt DateTime @updatedAt
 
@@ -1092,13 +1033,13 @@ model Setting {
 }
 
 model AuditLog {
-  id          String @id @default(cuid())
-  actorId     String?
-  action      String
-  entityType  String
-  entityId    String
+  id          String @id @default(cuid()) @db.VarChar(191)
+  actorId     String? @db.VarChar(191)
+  action      String @db.VarChar(191)
+  entityType  String @db.VarChar(191)
+  entityId    String @db.VarChar(191)
   changes     Json?
-  requestId   String?
+  requestId   String? @db.VarChar(191)
   createdAt   DateTime @default(now())
   actor       User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
@@ -1109,18 +1050,18 @@ model AuditLog {
 }
 
 model BackgroundJob {
-  id              String @id @default(cuid())
-  kind            String
-  deduplicationKey String? @unique
+  id              String @id @default(cuid()) @db.VarChar(191)
+  kind            String @db.VarChar(191)
+  deduplicationKey String? @unique @db.VarChar(191)
   payload         Json
-  status          JobStatus @default(PENDING)
+  status          String @default("PENDING") @db.VarChar(191)
   attempts        Int @default(0)
   maximumAttempts Int @default(5)
   availableAt     DateTime @default(now())
   lockedAt        DateTime?
-  lockedBy        String?
+  lockedBy        String? @db.VarChar(191)
   completedAt     DateTime?
-  lastError       String?
+  lastError       String? @db.VarChar(191)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1130,14 +1071,27 @@ model BackgroundJob {
 }
 
 model Redirect {
-  id        String @id @default(cuid())
-  locale    Locale
-  fromPath  String
-  toPath    String
+  id        String @id @default(cuid()) @db.VarChar(191)
+  locale    String @db.VarChar(191)
+  fromPath  String @db.VarChar(191)
+  toPath    String @db.VarChar(191)
   statusCode Int @default(308)
   isActive  Boolean @default(true)
   createdAt DateTime @default(now())
 
   @@unique([locale, fromPath])
   @@map("redirects")
+}
+
+model ContactMessage {
+ id String @id @default(cuid())
+ name String @db.VarChar(80)
+ email String @db.VarChar(191)
+ subject String @db.VarChar(191)
+ body String @db.Text
+ locale String @default("ar") @db.VarChar(2)
+ status String @default("NEW") @db.VarChar(20)
+ createdAt DateTime @default(now())
+ @@index([status,createdAt])
+ @@map("contact_messages")
 }

@@ -7,15 +7,14 @@ import {authConfigurationReady} from '@/lib/auth/config';
 export async function consumeRateLimit(scope: string, identity: string, maximum: number, windowSeconds: number): Promise<void> {
   if (!authConfigurationReady()) throw new AccountError('SERVICE_UNAVAILABLE', 503);
   const key = createHmac('sha256', process.env.AUTH_SECRET!).update(`${scope}\0${identity}`).digest('hex');
-  const rows = await getDatabase().$queryRaw<Array<{attempts:number}>>`
-    INSERT INTO auth_rate_limits (key, attempts, "expiresAt", "updatedAt")
-    VALUES (${key}, 1, NOW() + ${windowSeconds} * INTERVAL '1 second', NOW())
-    ON CONFLICT (key) DO UPDATE SET
-      attempts = CASE WHEN auth_rate_limits."expiresAt" <= NOW() THEN 1 ELSE auth_rate_limits.attempts + 1 END,
-      "expiresAt" = CASE WHEN auth_rate_limits."expiresAt" <= NOW() THEN NOW() + ${windowSeconds} * INTERVAL '1 second' ELSE auth_rate_limits."expiresAt" END,
-      "updatedAt" = NOW()
-    RETURNING attempts`;
-  if (!rows[0] || rows[0].attempts > maximum) throw new AccountError('RATE_LIMITED', 429);
+  const attempts = await getDatabase().$transaction(async tx => {
+    await tx.$executeRaw`INSERT INTO auth_rate_limits (\`key\`, attempts, \`expiresAt\`, \`updatedAt\`)
+      VALUES (${key}, 1, DATE_ADD(NOW(3), INTERVAL ${windowSeconds} SECOND), NOW(3))
+      ON DUPLICATE KEY UPDATE attempts = IF(\`expiresAt\` <= NOW(3), 1, attempts + 1),
+      \`expiresAt\` = IF(\`expiresAt\` <= NOW(3), VALUES(\`expiresAt\`), \`expiresAt\`), \`updatedAt\` = NOW(3)`;
+    return (await tx.authRateLimit.findUniqueOrThrow({where:{key}})).attempts;
+  });
+  if (attempts > maximum) throw new AccountError('RATE_LIMITED', 429);
 }
 
 /** Only Vercel's platform-controlled address header is trusted automatically. */

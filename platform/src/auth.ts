@@ -74,7 +74,7 @@ export const {auth, handlers, signIn, signOut} = NextAuth(request => {
           token.email = anchor.user.email;
           token.picture = anchor.user.image;
           token.emailVerified = anchor.user.emailVerified?.toISOString() ?? null;
-          token.preferredLocale = anchor.user.preferredLocale;
+          token.preferredLocale = anchor.user.preferredLocale === 'en' ? 'en' : 'ar';
           token.roles = anchor.user.roles.map(item => item.role.slug);
           return token;
         } catch { return null; }

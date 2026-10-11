@@ -1,10 +1,8 @@
 # Alabbas Academy
 
-The current Vercel application is in **[platform/](platform/README.md)** on the `platform` branch. It uses Next.js, PostgreSQL, Arabic/English pages, the academy logo palette, SAR prices, accounts with email verification and password recovery, profile settings, and persistent guest/account carts. Set Vercel's root directory to `platform` and framework to **Next.js**.
+The current full platform is in **[platform/](platform/README.md)** on the `platform` branch. It uses Next.js standalone with **MySQL/MariaDB**, Arabic/English pages, the academy logo palette, SAR, verified accounts, carts, pending checkout, protected learning/exams/certificates, and administration. **Payments remain OFF by default.**
 
-Follow **[the browser-only Vercel setup guide](platform/docs/VERCEL_SETUP.md)** to connect PostgreSQL and verification email without downloading the project. A successful deployment does not activate accounts until those services and migrations are configured. Checkout, protected learning, and full administration remain later phases; see [delivery status](platform/docs/PHASES.md).
-
-The PHP/MySQL site in [deploy/hostinger/](deploy/hostinger/README.md) and the `hostinger` branch are retained for the existing hosting deployment. The root-level Node application described below is the earlier demonstration, separate from the new Vercel platform.
+Use the [Hostinger Node.js deployment instructions](platform/README.md). The `platform` branch requires a Node.js Web App; the historical PHP application on the `hostinger` branch is retained for rollback. Do not deploy the Next.js source into PHP `public_html`. Publishing requires actual Hostinger access and private database/SMTP settings; a Git push alone does not prove the customer domain changed.
 
 ## Earlier local demonstration
 

@@ -1,119 +1,128 @@
-# Alabbas Academy platform
+# Alabbas Academy — Hostinger Node.js platform
 
-This directory contains the new Alabbas Academy application: an Arabic-first, bilingual Next.js site with logo-inspired course cards, email/password accounts, email verification and recovery, account settings, and persistent course carts. English pages use `/en`; Arabic pages use `/ar` and right-to-left layout. Prices use Saudi riyals (SAR).
+Arabic-first `/ar`, English `/en`; navy, sky blue and gold cards. Next.js standalone, Auth.js, Prisma **MySQL/MariaDB**, SMTP, persistent private uploads. No Docker, Redis, worker service or cron is required. The historical PHP website stays on the `hostinger` branch. This platform belongs on a **Node.js Web App**, never in PHP `public_html`.
 
-The existing PHP/MySQL site remains in `deploy/hostinger/` and on the `hostinger` branch. This application requires Node.js and PostgreSQL; the existing MySQL database is not compatible. Vercel can deploy the `platform` branch with root directory `platform`. Accounts need a configured PostgreSQL database and email service. Checkout/payment, protected lessons and exams, and the full administration dashboard remain later phases. Existing accounts and the live Hostinger domain are not migrated automatically.
+## Working features
 
-For a live Vercel project, follow [the browser setup steps](docs/VERCEL_SETUP.md). They cover the database, verification emails, environment variables, migrations and a signup check without downloading this repository.
+- Editable bilingual catalog, 12 clearly marked sample courses, six categories, three fictional instructors, real YouTube sample embeds, sample lesson files and exams.
+- Credentials and optional Google authentication, verified-email ownership linking, single-use verification/reset tokens, secure Argon2 hashing, account profile/language/avatar/password, session revocation and database rate limits.
+- Guest cart merges after login; the server validates published courses, prices and ownership. Checkout snapshots prices, reserves coupons and creates pending orders idempotently.
+- **Payments are OFF by default.** Manual orders unlock nothing until an administrator confirms receipt. Confirmation creates enrollments and a durable receipt email. Moyasar has a local hosted widget, server API verification, secret-protected webhook, idempotent fulfillment and full refunds.
+- Protected learning pages/files, MP4 resume, private notes, lesson completion, server-graded timed exams with attempt limits, enrolled-only moderated reviews and completion-gated bilingual PDF certificates. Refunds revoke the purchased enrollment and certificate.
+- Administrator dashboard with seven-day order chart, searchable paginated records, courses/categories/instructors/sections/lessons/files/exams/questions/answers/coupons/content/settings, user bans/roles/free enrollment/revocation/verification resend, order payment/refund/CSV, review moderation, contact messages, email retries and audit logs. Section/lesson Move up/down controls change actual curriculum order.
+- SSR public pages, localized metadata/canonical/alternates, generated social images, JSON-LD, database sitemap, robots exclusions and private route noindex. Performance targets must be measured on the final host; no Lighthouse score is claimed without a report.
 
-## Local development
+## Install and run
 
-Use the existing repository checkout. Cloud tasks are already isolated; do not create a Git worktree unless the user explicitly requests one. Run the commands below from `platform/`.
-
-Required tools: Node.js 24 LTS (Node.js 22.18+ is also supported), npm, and PostgreSQL 17. Docker Compose is the convenient local database option. Use the committed npm lockfile for repeatable installs.
+Use Node **22 LTS (22.18+)** or a compatible newer Hostinger version. Node 24 was used in the cloud validation. MySQL 8 or MariaDB 10.6+ is recommended; schema uses MariaDB-compatible JSON, bounded strings and string statuses instead of PostgreSQL arrays/enums.
 
 ```sh
-cd /workspace/alabbas_academy/platform
+cd platform
 npm ci
 cp .env.example .env
-npm run db:start
-```
-
-On another machine, replace the absolute `cd` path with the location of this checkout. Preserve an existing `.env` file instead of overwriting it. In that private file, set separate random `AUTH_SECRET` and `JOB_WORKER_SECRET` values of at least 32 characters, and set `EMAIL_TRANSPORT="outbox"` for local account testing. Resend and Google credentials are optional in this development mode. `compose.yaml` binds the development database to `127.0.0.1:5560`; its sample credentials are for local development only. Confirm that the database is healthy before applying migrations:
-
-```sh
-docker compose ps db
-docker compose exec -T db pg_isready -U academy -d academy
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
-
-On this cloud runner, Prisma's native migration engine download is blocked by the egress policy. Use `npm run db:migrate:wasm` in place of `npm run db:migrate`; it deploys the same committed migrations through the version-pinned official Prisma WASM engine, preserving migration history, checksums, and locking. Client generation and the application build work normally. See [database instructions](docs/DATABASE.md) for the fallback's validation and limitations.
-
-The npm override pins the `next-intl` SWC dependency to compatible `1.16.0`. Newer `1.16` native carriers reject this runner's filesystem ancestry; the pinned official registry artifact loads without changing checksum or TLS verification. The lockfile records package integrity.
-
-The development server listens on port **3001**. Public sample pages can render without the account services; missing configuration produces an unavailable-service message instead of a fake successful signup. Account mutations and saved account carts require the migrated database. Seeding a fresh database adds the demonstration courses used by account carts. The repeatable seed preserves existing course edits and does not turn on payments or create an administrator with a fixed password.
-
-In outbox mode, account messages are written privately to the ignored `.local/mail/outbox/` directory. Only inspect links for your local test accounts; these files contain single-use credentials. Account requests attempt queued delivery after responding. Run `npm run email:work` to process pending mail manually. Production rejects outbox mode and requires a real Resend sender.
-
-Run `npm run auth:cleanup` for bounded removal of old expired account records. It retains active credentials and rate windows, recent expiry history, pending email jobs and unrelated job types. Schedule the authenticated `POST /api/jobs/account-maintenance` endpoint on deployed hosts; retention and scheduling instructions are in [Vercel setup](docs/VERCEL_SETUP.md).
-
-If Docker is unavailable, use an existing local PostgreSQL server and set `DATABASE_URL` privately in `.env`; then run the same generation, migration, seed, and server commands. Do not use the development database credentials in production. Keep `.env` out of Git and do not place database passwords in `NEXT_PUBLIC_` variables.
-
-## Validation
-
-Required checks for the implemented foundation, account and cart work:
-
-```sh
-npm run typecheck
-npm run lint
-npm test
-npm run build
-```
-
-After startup, check both locales, registration, login, verification, recovery, account settings and guest-to-account cart persistence. Database suites require their explicit local test-database variables; skipped integration tests are not a database readiness check. See validation reports in `docs/` for recorded outcomes. `npm run start` copies public/static assets into the standalone directory and runs its supported Next.js server on loopback port 3001. Set `ACADEMY_HOST=0.0.0.0` when the host requires an externally reachable listener. Production Lighthouse scores are assessed during the launch phase.
-
-The project enables Next.js's experimental `globalNotFound` option to render complete Arabic or English 404 documents for the dynamic locale root layout. The current static demonstration course route uses `dynamicParams=false`, so an unknown course slug also reaches the localized router-level 404. Verify HTTP status, raw `lang`/`dir`, translated content, and `noindex` when upgrading Next.js. Database-backed catalog implementation in Phase 3 will revisit this static routing choice.
-
-## Container deployment
-
-Build the standalone application from this directory. The only build argument shown here is a public origin, not a secret:
-
-```sh
-docker build \
-  --build-arg NEXT_PUBLIC_APP_URL=https://alabbasacademy.com \
-  -t alabbas-platform .
-```
-
-`NEXT_PUBLIC_` values can be embedded in browser bundles. Rebuild when the public origin changes. `.dockerignore` excludes local environment files. The image runs as a non-root user on port 3001 and does not seed or migrate a database on startup. Its health check requests `/ar` to check the web process, independently of database readiness.
-
-For this cloud runner, Docker builds need the existing injected proxy and trusted CA. BuildKit's DNS also needs the proxy hostname mapped to its host-resolved address. The following build uses those existing settings; it does not disable TLS verification or store the proxy/CA in the runtime image:
-
-```sh
-mkdir -p /tmp/alabbas-platform-docker-config
-academy_proxy_host="$(node --input-type=module -e 'console.log(new URL(process.env.HTTPS_PROXY).hostname)')"
-academy_proxy_ip="$(getent ahostsv4 "$academy_proxy_host" | awk 'NR==1{print $1}')"
-test -n "$academy_proxy_ip"
-DOCKER_CONFIG=/tmp/alabbas-platform-docker-config docker build \
-  --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY \
-  --add-host "${academy_proxy_host}:${academy_proxy_ip}" \
-  --secret "id=build_ca,src=$NODE_EXTRA_CA_CERTS" \
-  --build-arg NEXT_PUBLIC_APP_URL=https://alabbasacademy.com \
-  -t alabbas-platform .
-```
-
-The CA secret is optional for builders that do not use an intercepting proxy. The Dockerfile enables Node's environment-proxy support only during build commands. Using the temporary `DOCKER_CONFIG` directory also avoids writing Docker's build cache settings under this runner's read-only home directory.
-
-Before a release, back up the target database, set the real `DATABASE_URL` through the deployment environment, and apply committed migrations from a full checkout with the development toolchain installed:
-
-```sh
-npm ci
+# Enter private values in .env or the host's environment settings.
 npm run db:generate
 npm run db:deploy
+npm run db:seed
+npm run build
+npm start
 ```
 
-Run this migration step as a separate release job, once per release, rather than in each replica. The standalone runtime image intentionally excludes the Prisma CLI. Provide secrets only at runtime through the host's secret manager or a protected environment file outside the repository:
+For development use `npm run dev`; run a local MySQL instance yourself or use an existing development database. Never point the test runner at your hosted database. `.env`, uploads, development mail, generated clients and build output are ignored by Git. Do not paste credentials into chat or commit them.
+
+`server.js` is the source deployment entry point. It copies only `public` and `.next/static` into the standalone output, honors Hostinger's `PORT` and binds `0.0.0.0`. Uploads use an absolute external `UPLOAD_DIR`, so starting the server never replaces them.
+
+## Exact Hostinger deployment sequence
+
+1. Back up the existing customer website and its MySQL database in hPanel. Preserve the existing PHP `hostinger` deployment as the rollback target.
+2. Open **Websites → Add website → Node.js Web App** (labels may differ by hPanel version). A PHP/HTML website cannot execute Next.js. Your Cloud Startup subscription does not by itself change the site's runtime. Confirm the Node.js Web App option is enabled for your account before attaching the customer domain.
+3. Connect GitHub repository `AhmadAlabbas/alabbas_academy`, branch **platform**, root directory **platform**. Select the available Node 22+ runtime, build command **npm run build**, start command **npm start** (or entry point **server.js** where Hostinger asks for a file). Leave Hostinger's injected PORT in place.
+4. In **Databases → Management/MySQL**, create a **new dedicated platform database** and a user. Copy the complete prefixed database/user names; do not reuse or overwrite the legacy PHP database. Use the hostname shown by Hostinger (usually `localhost`). Grant this user access only to its platform database.
+5. In application environment settings set `DATABASE_URL=mysql://USER:PERCENT_ENCODED_PASSWORD@HOST:3306/DATABASE`. Password characters such as `+`, `@`, `#`, `/` and `:` must be URL-encoded. Enter the URL privately. Set `NEXT_PUBLIC_APP_URL` and `AUTH_URL` to **https://alabbasacademy.com**, one strong `AUTH_SECRET`, and a persistent absolute `UPLOAD_DIR` outside the redeployed application directory. Create this directory writable by the Node app's Unix user, with private permissions.
+6. Configure SMTP and private seed-admin credentials as described below. Leave **PAYMENTS_ENABLED=false**. Hostinger must apply both build-time public variables and runtime private variables. Rebuild if any `NEXT_PUBLIC_*` variable changes.
+7. In the app's SSH/terminal, `cd` to its `platform` directory and run `npm ci`, `npm run db:generate`, `npm run db:deploy`, then `npm run db:seed`. If hPanel offers a pre-deploy command rather than a terminal, run these there. Do not make a publicly callable installer or paste a database password into a repository build script. Normal later deploys run `npm run db:deploy`; the seed is optional and preserves existing edited records.
+8. Build/start and verify the temporary/staging domain first: both languages, signup → email verification → login, cart, pending order, admin confirmation, learner video/file/exam/certificate, file upload and a second redeploy preserving that upload. Configure the temporary domain as the auth/public origin for its test build; rebuild with the customer origin before the final switch.
+9. Attach **alabbasacademy.com** to the verified Node.js app in Hostinger's domain settings; use the DNS target shown by hPanel, enable HTTPS, and confirm the exact custom URL. Avoid guessing a DNS IP or deleting unrelated email/DNS records. The user has authorized publication; access to Hostinger is still required to execute these steps.
+10. Replace sample content, review legal pages/contact information, and perform the customer-origin signup/email test before advertising the site. Use the preserved PHP application/database for rollback if the Node deployment fails.
+
+Pushing a branch does not prove a live deployment: confirm the deployed branch, build commit, environment configuration, domain attachment and final HTTP/browser checks. This repository cannot configure your private hPanel account without a deployment connection.
+
+## Environment variables
+
+All variables are documented in `.env.example`; real values belong in private host settings.
+
+| Variable | Purpose |
+|---|---|
+| DATABASE_URL | Private MySQL URL, percent-encoded password; required |
+| NEXT_PUBLIC_APP_URL / AUTH_URL | Same canonical HTTPS origin, no path/query; public metadata and private account links |
+| AUTH_SECRET | At least 32 random characters; cookie/token/queue cryptographic secret; required |
+| UPLOAD_DIR | Absolute persistent private directory outside `.next`/`public`/deployment; required on hosting |
+| PORT / ACADEMY_HOST | Host-injected port; bind address defaults to `0.0.0.0` |
+| AUTH_TRUSTED_PROXY | `1` only if your trusted host proxy removes client-supplied forwarded headers |
+| GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Optional Google OAuth pair |
+| EMAIL_TRANSPORT | `smtp` default, or `resend`; `outbox` is local development only and rejected in production |
+| SMTP_HOST / SMTP_PORT / SMTP_SECURE | Hostinger normally `smtp.hostinger.com`, `465`, `true`; 587 with `false` requires STARTTLS |
+| SMTP_USER / SMTP_PASSWORD | Private mailbox credentials, not database credentials |
+| EMAIL_FROM / ADMIN_EMAIL | Verified sender and contact notification recipient |
+| RESEND_API_KEY | Needed only for `EMAIL_TRANSPORT=resend` |
+| SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME | Private admin seed configuration, 12–128 character password; no fixed default password |
+| PAYMENTS_ENABLED | `false` today; `true` only after approval and test verification |
+| NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY | Public publishable gateway key, compiled into browser bundle |
+| MOYASAR_SECRET_KEY / MOYASAR_WEBHOOK_SECRET | Private API key and at least 32-character random webhook secret |
+| JOB_WORKER_SECRET | Optional ≥32-character bearer secret for bounded maintenance endpoints; unused when using admin retry |
+
+Generate secrets privately with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. **The admin credentials are the values you set in SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD. They are intentionally not printed in this README, logs or the repository.** Seed preserves existing users/passwords; use password recovery to change an existing administrator's password. Keep the seed variables only as long as required for initialization.
+
+## Google OAuth
+
+In Google Cloud create a Web OAuth client, set authorized origin to `https://alabbasacademy.com`, and authorized redirect URI to `https://alabbasacademy.com/api/auth/callback/google`. Set both private client variables in Hostinger and restart. Add explicit staging origins/callbacks for staging. Google must assert a verified email; existing unverified email accounts cannot be silently claimed. If neither key is configured, the Google button is hidden.
+
+## SMTP and delivery
+
+Create a Hostinger mailbox such as `hello@alabbasacademy.com`, verify the hPanel SMTP settings, and enter its actual mailbox username/password privately. Set `EMAIL_FROM` to that mailbox. Configure SPF/DKIM and test delivery to a real inbox. Signup and recovery fail closed if the delivery configuration is absent; the application does not claim a verification email was sent when no valid transport exists.
+
+Queues are encrypted database rows. Account requests deliver a bounded batch after response; order/contact requests deliver bounded notifications. **There is no worker process or required scheduled job.** Admin → Email delivery → Retry email delivery retries failed queued messages and cleans up old account records. SMTP delivery can be repeated after an ambiguous network failure (SMTP cannot guarantee exactly-once delivery); tokens and order fulfillment remain idempotent. If choosing Resend, configure its verified sender and key, then switch `EMAIL_TRANSPORT=resend`.
+
+## Payments today and later
+
+Keep `PAYMENTS_ENABLED=false`: customers see “Payments will be available soon” and can create pending orders. In Admin → Orders, confirm receipt of the amount externally before **Mark paid**; do not mark it merely to dismiss a pending order. Pending manual orders/coupon reservations expire after 24 hours. Free enrollment is available from Admin → Users for verified active accounts.
+
+To enable Moyasar after approval: configure its publishable/secret keys and webhook secret, set the webhook URL to `https://alabbasacademy.com/api/payments/webhook` with the matching secret token, set `PAYMENTS_ENABLED=true`, ensure the site setting `payments_enabled` is `true`, and rebuild/restart. The seeded site toggle is `true` but the mandatory environment gate is **false**; either can turn payments off. No code change is needed.
+
+Run a real **Moyasar test-mode payment and refund** before adding live keys. The server retrieves payment status/amount/SAR/order metadata from the API; redirect or webhook bodies alone cannot enroll a customer. Widget metadata includes `order_id`. Webhooks are secret-checked and deduplicated; the return URL also verifies the payment. Full refunds revoke access and certificates. For manual refunds, return the funds externally first, then record the refund in the dashboard. Ambiguous online refund requests remain pending and require reconciliation instead of blindly charging another refund. Real gateway acceptance/refund behavior cannot be certified without the gateway's credentials and approval.
+
+## Replace sample content without editing code
+
+1. Sign in as the seeded administrator and open `/ar/admin` or `/en/admin` (also linked from My Courses).
+2. Categories and instructors: create/edit Arabic and English fields. Copy the record ID shown in its card/table to connect related records.
+3. Courses: edit both titles/slugs/descriptions/outcomes/requirements/SEO, category ID, price in **halalas** (100 = SAR 1), comparison price, languages, featured flag and status. Disable `isSample` only when content is real. Assign instructors with **Add instructor**.
+4. Sections and lessons: use the course/section IDs, bilingual fields and position; Move up/down reorders them. Set published lessons, a supported YouTube/Vimeo/Bunny HTTPS video link or uploaded MP4 file ID. Public preview is a separate course field; private lesson URLs/bodies are not sent in the public curriculum.
+5. Upload images (JPEG/PNG/WebP ≤5 MB), PDF/TXT files (≤10 MB) or MP4 (≤25 MB). Copy image URL to the thumbnail field; copy file ID to videoFileId or a Lesson attachment record. Uploaded images are public; videos and course attachments require active enrollment. For larger videos use the supported external provider; uploads are deliberately bounded for hosting memory limits.
+6. Exams: create course exam → question → answer options; exactly one correct answer per single-choice question. Set required flag, passing mark in basis points (7000 = 70%), minutes and attempt limit. Empty/invalid exams cannot start. Every published lesson and required exam must be completed/passed before certificate issuance.
+7. Content: Pages edits About/Privacy/Terms/Refund Policy; Homepage blocks edits the hero and renders BANNER blocks; FAQ/Testimonial screens edit those cards. Settings `home_content_ar` / `home_content_en` contain all remaining homepage labels and descriptions as a flat JSON object. Settings also edit site name, uploaded logo, contact information, social links, default SEO and the gateway toggle. Settings text values use JSON quotes, booleans do not.
+8. Reviews require enrollment and start pending; publish approved reviews only. Demo testimonials/instructors are fictional and must not be presented as real customer endorsements.
+
+YouTube/Vimeo sample videos are public at the original provider. Enrollment protects academy pages/files; it cannot make somebody else's public YouTube upload private. Use private Bunny hosting or uploaded MP4 for paid original videos. Certificates document academy course completion, not external accreditation. New legal pages are editable starting text and should reflect your actual Saudi business/contact/refund practices before customer launch.
+
+## Verification and packaging
 
 ```sh
-docker run --detach \
-  --name alabbas-platform \
-  --env-file /secure/path/alabbas-runtime.env \
-  --publish 127.0.0.1:3001:3001 \
-  alabbas-platform
+npm run lint
+npm run typecheck
+npm test
+npm run test:database
+npm run build
+npm start
+npm run prepare:hostinger
 ```
 
-Put an HTTPS reverse proxy in front of the loopback port. Set `DATABASE_URL` to the production PostgreSQL connection; `localhost` inside the application container points to that container, not the database host. Use a private database network and the provider's supported TLS configuration. Do not substitute MySQL credentials: this platform's schema and Prisma adapter require PostgreSQL.
+Database tests refuse non-loopback servers, create a random `academy_test_*` database, apply official Prisma migrations and drop only that database in `finally`. Your local development database user must have CREATE/DROP privileges for this test prefix. They cover auth ownership/tokens/session revocation, concurrent cart/order creation, manual confirmation/refund, encrypted mail retries/rate limits and exam/certificate gates. Normal unit tests explicitly skip database-only suites; run the database command to exercise them.
 
-## Account configuration and remaining integrations
+The package command writes `.local/hostinger-package` with standalone runtime, static/public assets, migration files and deployment documentation, excluding `.env`, local data and uploads. Prefer **GitHub source deployment**: it installs platform-compatible native dependencies and includes Prisma CLI/seed tooling. If using the runtime package, migrate/seed from a source checkout first and start its generated `server.js` directly. Keep environment variables in hPanel. Do not upload private `.env` or overwrite persistent uploads. A locally prepared build is not proof of publication on Hostinger.
 
-`.env.example` distinguishes implemented account/email settings from future Moyasar, Bunny Stream and private-storage settings. Accounts require `DATABASE_URL`, `AUTH_SECRET` and an allowed application origin. Production verification and recovery require `RESEND_API_KEY`, `EMAIL_FROM` and an HTTPS `AUTH_URL`. Use identical `AUTH_URL` and `NEXT_PUBLIC_APP_URL` values for the deployed project. Google sign-in is optional; its button appears only when both Google credentials are configured.
 
-Auth.js is pinned to `5.0.0-beta.32` for the asynchronous Next.js 16 integration. Rerun account/session tests before upgrading. Credentials use Argon2id hashes and database-checked session revocation. Linking Google to an existing account requires a recent verified password session for that same email.
+## Release checks and dependency decisions
 
-Queued email uses authenticated encryption with a key derived from `AUTH_SECRET`. Keep it stable between deploys; rotation invalidates sessions and prevents delivery of older queued messages. The authenticated `POST /api/jobs/email` endpoint retries pending mail with a scheduler supporting POST and an `Authorization` header. Vercel's native cron GET requests do not call this worker. See [Vercel setup](docs/VERCEL_SETUP.md).
+See [HOSTINGER_VALIDATION.md](docs/HOSTINGER_VALIDATION.md) for the full requirement checklist, actual test counts, runtime package checks and external launch prerequisites. Production audit reports zero findings. Patched Nodemailer/MariaDB/MySQL2/deepmerge versions are pinned with targeted overrides; Auth.js's optional email peer range still names older Nodemailer versions, while this application uses its own tested SMTP delivery rather than Auth.js email-provider delivery. Credentials/Google ownership and database tests pass with the patched dependency set. Five remaining development-only audit findings are the unpatched ESLint braces chain; they are excluded from the standalone runtime. Do not run `npm audit fix --force` to downgrade the framework.
 
-Payment and private-video placeholders remain unused until those implementations. Generate separate random secrets in secure settings and keep real values outside Git and chat. Public `NEXT_PUBLIC_` variables must never contain credentials.
-
-Read [the architecture](docs/ARCHITECTURE.md) for implementation boundaries and [the delivery phases](docs/PHASES.md) for the current scope and remaining work.
+Local mobile Lighthouse measured 92 performance, 100 accessibility and 100 best practices. The final customer host still needs its own performance/SEO report; 95+ performance is a target, not a verified claim.

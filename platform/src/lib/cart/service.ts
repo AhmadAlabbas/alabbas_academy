@@ -11,7 +11,7 @@ export async function updateAccountCart(userId: string, operation: CartOperation
   return getDatabase().$transaction(async tx => {
     // A transaction-scoped lock also protects the first simultaneous cart creation.
     // Values remain parameters; neither course identifiers nor user IDs become SQL.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`cart:${userId}`}, 0))`;
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
     const cart = await tx.cart.upsert({ where: { userId }, update: {}, create: { userId }, select: { id: true } });
     const stored = await tx.cartItem.findMany({
       where: { cartId: cart.id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -27,18 +27,16 @@ export async function updateAccountCart(userId: string, operation: CartOperation
       where: { key: { in: keys } },
       select: {
         id: true, key: true, status: true, currency: true, priceHalalas: true, coverStyle: true,
-        translations: { select: { locale: true, title: true, slug: true } },
+        title_ar:true,title_en:true,slug_ar:true,slug_en:true,
         enrollments: { where: { userId, status: { in: ['ACTIVE', 'COMPLETED'] } }, select: { id: true } },
       },
     }) : [];
     const candidates: CartCandidate[] = courses.map(course => {
-      const ar = course.translations.find(translation => translation.locale === 'ar');
-      const en = course.translations.find(translation => translation.locale === 'en');
       return {
         published: course.status === 'PUBLISHED', owned: course.enrollments.length > 0, currency: course.currency,
         item: {
-          courseId: course.key, title: { ar: ar?.title ?? '', en: en?.title ?? '' },
-          slug: { ar: ar?.slug ?? '', en: en?.slug ?? '' },
+          courseId: course.key, title: { ar: course.title_ar, en: course.title_en },
+          slug: { ar: course.slug_ar, en: course.slug_en },
           cover: (covers.has(course.coverStyle) ? course.coverStyle : 'design') as CartItem['cover'],
           priceHalalas: course.priceHalalas,
         },

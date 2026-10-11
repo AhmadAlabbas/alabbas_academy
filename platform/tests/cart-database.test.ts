@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '@/generated/prisma/client';
 
 vi.mock('server-only', () => ({}));
@@ -14,16 +14,16 @@ let database: PrismaClient;
 vi.mock('@/lib/db', () => ({ getDatabase: () => database }));
 const { updateAccountCart } = await import('@/lib/cart/service');
 
-describe.skipIf(!testUrl)('cart PostgreSQL integration (explicit local test database only)', () => {
+describe.skipIf(!testUrl)('cart MySQL integration (explicit local test database only)', () => {
   beforeAll(async () => {
     const url = new URL(testUrl!);
     if (!['localhost', '127.0.0.1', '::1'].includes(url.hostname)) throw new Error('Cart integration tests require a local database.');
-    database = new PrismaClient({ adapter: new PrismaPg({ connectionString: testUrl, max: 10 }) });
+    database = new PrismaClient({ adapter: new PrismaMariaDb(testUrl!) });
     await database.user.createMany({ data: [userA, userB].map((id, index) => ({ id, email: `cart-${index}-${token}@example.test` })) });
     await database.category.create({ data: { id: categoryId, key: categoryId } });
     for (const [key, status, priceHalalas] of [['one', 'PUBLISHED', 12901], ['two', 'PUBLISHED', 9999],
       ['draft', 'DRAFT', 500], ['owned', 'PUBLISHED', 500], ['complete', 'PUBLISHED', 500], ['revoked', 'PUBLISHED', 500]] as const) {
-      await database.course.create({ data: { id: `${prefix}-${key}`, key: `${prefix}-${key}`, categoryId, status, priceHalalas,
+      await database.course.create({ data: { id: `${prefix}-${key}`, key: `${prefix}-${key}`, categoryId, status, priceHalalas, slug_ar:`${prefix}-${key}-ar`,slug_en:`${prefix}-${key}-en`, title_ar:`اختبار ${key}`,title_en:`Test ${key}`,
         translations: { create: [{ locale: 'ar', title: `اختبار ${key}`, description: 'اختبار السلة', slug: `${prefix}-${key}-ar` }, { locale: 'en', title: `Test ${key}`, description: 'Cart test', slug: `${prefix}-${key}-en` }] } } });
     }
     await database.enrollment.createMany({ data: [

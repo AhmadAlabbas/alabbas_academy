@@ -14,13 +14,15 @@ const routes = [
   {href: '/', label: 'home'},
   {href: '/courses', label: 'courses'},
   {href: '/about', label: 'about'},
+  {href:'/my-courses',label:'myCourses'},
 ] as const;
 
 type SiteHeaderProps = {
   courseSlugs: Array<Record<Locale, string>>;
+  logo?:string;academyName?:string;
 };
 
-export function SiteHeader({courseSlugs}: SiteHeaderProps) {
+export function SiteHeader({courseSlugs,logo='/logo.svg',academyName}: SiteHeaderProps) {
   const t = useTranslations('Header');
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -68,10 +70,10 @@ export function SiteHeader({courseSlugs}: SiteHeaderProps) {
   return (
     <header className="relative z-40 border-b border-[var(--line)] bg-white/95">
       <div className="container-shell flex min-h-24 items-center justify-between gap-4 py-3">
-        <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={t('academy')}>
-          <Image src="/logo.svg" width={330} height={425} alt="" preload className="h-auto w-8 shrink-0 object-contain sm:w-10" />
+        <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={academyName || t('academy')}>
+          <Image src={logo} unoptimized width={330} height={425} alt="" preload fetchPriority="high" className="h-auto w-8 shrink-0 object-contain sm:w-10" />
           <span className="hidden min-w-0 min-[440px]:block">
-            <span className="block text-base font-bold tracking-tight text-[var(--navy)] sm:text-lg">{t('academy')}</span>
+            <span className="block text-base font-bold tracking-tight text-[var(--navy)] sm:text-lg">{academyName || t('academy')}</span>
             <span className="mt-0.5 hidden text-xs text-[var(--muted)] sm:block">{t('tagline')}</span>
           </span>
         </Link>

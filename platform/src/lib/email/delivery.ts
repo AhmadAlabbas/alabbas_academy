@@ -6,8 +6,9 @@ import {resolve} from "node:path";
 import {AccountEmailError, configuredEmailTransport} from "./config";
 import type {AccountEmailPayload} from "./payload";
 import {renderAccountEmail} from "./template";
+import nodemailer from "nodemailer";
 
-export type EmailDeliveryReceipt = {transport: "resend" | "outbox"};
+export type EmailDeliveryReceipt = {transport: "smtp" | "resend" | "outbox"};
 
 function outboxDirectory(): string {
   return resolve(process.cwd(), ".local/mail/outbox");
@@ -41,6 +42,10 @@ export async function removeExpiredOutboxMessages(): Promise<void> {
 export async function deliverAccountEmail(jobId: string, payload: AccountEmailPayload): Promise<EmailDeliveryReceipt> {
   const transport = configuredEmailTransport();
   const rendered = renderAccountEmail(payload);
+  if (transport === "smtp") {
+    await smtpSend({to:payload.to,...rendered});
+    return {transport};
+  }
   if (transport === "outbox") {
     // Explicit development-only transport. These files contain one-time tokens;
     // they are ignored by Git and must never be served by a public route.
@@ -100,4 +105,11 @@ export async function deliverAccountEmail(jobId: string, payload: AccountEmailPa
   const receipt = await response.json().catch(() => null) as {id?: unknown} | null;
   if (!receipt || typeof receipt.id !== "string" || !receipt.id) throw new AccountEmailError("EMAIL_PROVIDER_INVALID_RECEIPT");
   return {transport};
+}
+
+export async function smtpSend(message:{to:string;subject:string;html:string;text:string}) {
+  const smtp=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||465),secure:process.env.SMTP_SECURE !== 'false',auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASSWORD},connectionTimeout:7000,greetingTimeout:7000,socketTimeout:10000,requireTLS:process.env.SMTP_SECURE === 'false'});
+  try { const receipt=await smtp.sendMail({from:process.env.EMAIL_FROM,...message}); if(!receipt.accepted?.length)throw new Error('Rejected'); }
+  catch {throw new AccountEmailError('EMAIL_PROVIDER_FAILED');}
+  finally{smtp.close();}
 }

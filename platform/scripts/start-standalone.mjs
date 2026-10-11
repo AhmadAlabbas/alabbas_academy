@@ -27,5 +27,5 @@ for (const [source, destination] of [['public', 'public'], ['.next/static', '.ne
 }
 
 process.env.PORT ||= '3001';
-process.env.HOSTNAME = process.env.ACADEMY_HOST || '127.0.0.1';
+process.env.HOSTNAME = process.env.ACADEMY_HOST || '0.0.0.0';
 await import(pathToFileURL(serverFile).href);
