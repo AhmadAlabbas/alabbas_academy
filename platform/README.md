@@ -25,6 +25,7 @@ npm run db:generate
 npm run db:deploy
 npm run db:seed
 npm run build
+npm run test:hostinger
 npm start
 ```
 
@@ -33,6 +34,8 @@ For development use `npm run dev`; run a local MySQL instance yourself or use an
 `server.js` is the source deployment entry point. It copies only `public` and `.next/static` into the standalone output, honors Hostinger's `PORT` and binds `0.0.0.0`. Uploads use an absolute external `UPLOAD_DIR`, so starting the server never replaces them.
 
 The production build explicitly uses Next.js's supported Webpack bundler (`next build --webpack`). The Hostinger build log for commit `857697c` showed Turbopack's PostCSS subprocess exiting before its connection was established while processing Moyasar CSS. Hostinger should keep its build command as `npm run build`; the package script selects Webpack. No database or payment credentials are needed to build the design preview.
+
+Hostinger's LiteSpeed `lsnode.js` loader calls `require(server.js)`. The entry file dynamically imports the asynchronous startup helper so its synchronous module graph has no top-level `await`. Keep the entry file as `server.js`. After building, `npm run test:hostinger` checks both this loader path and direct Node startup, including public pages and CSS with the database unset.
 
 ## Exact Hostinger deployment sequence
 
