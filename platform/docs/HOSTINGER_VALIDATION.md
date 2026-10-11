@@ -44,3 +44,12 @@ The source release targets branch `platform`, application root `platform`, Node 
 5. Review sample/legal/contact material and back up the previous site/database before customer advertising. Measure performance on the final host; no live customer-readiness claim is made yet.
 
 Native Git read/push is available through the existing GitHub authentication proxy. No Hostinger deployment connector/SSH binding is available. HTTPS inspection of `alabbasacademy.com` was denied by the current egress proxy (CONNECT 403); a saved network draft is not a running network change. Pushing source does not prove Hostinger deployed it. Publication must be confirmed by the deployed source commit and customer-domain checks.
+
+
+## Repository import follow-up — 11 October 2026
+
+The supplied Hostinger import PDF reported no `package.json`. Native Git confirmed GitHub's default HEAD remains `hostinger`, the PHP branch, which has no package manifest. The user must select/change the repository default to `platform` before refreshing the import; that metadata change cannot be performed through the available deployment tools.
+
+The platform branch's root entry previously launched the historical Node demo. Root `package.json`/lockfile now install the platform's exact locked dependencies, forward build/check/database commands, and root `server.js` starts the full Next application. The demonstration is preserved as `legacy-server.cjs` and explicit legacy scripts. Next tracing/Turbopack roots are pinned to `platform` so a root npm lockfile does not move the standalone server output. Hostinger can use root `platform` (recommended) or `.` with this bootstrap. PHP deployment branch/files remain unchanged.
+
+Executed root commands: `npm ci`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm test` (199 passed / 34 DB-only skipped), `npm run test:legacy` (3 passed), `npm run prepare:hostinger`, and `npm start` with a dedicated test port. Ten Arabic/English home/catalog/login/signup/cart HTTP checks passed. MySQL health returned ready with payments disabled; the legacy `/api/me` endpoint correctly returned 404. The actual platform production audit still returned zero vulnerabilities (audit from a dependency-free root alone would not audit the nested application). Live Hostinger import/domain configuration remains unverified.

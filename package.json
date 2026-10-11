@@ -1,1 +1,25 @@
-{"name":"alabbas-academy","version":"1.0.0","private":true,"scripts":{"start":"node server.js","test":"node --test"},"engines":{"node":">=22"}}
+{
+  "name": "alabbas-academy",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Alabbas Academy bilingual Next.js platform for Hostinger Node.js hosting",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "postinstall": "npm --prefix platform ci --include=dev",
+    "build": "npm --prefix platform run build",
+    "start": "node server.js",
+    "dev": "npm --prefix platform run dev",
+    "lint": "npm --prefix platform run lint",
+    "typecheck": "npm --prefix platform run typecheck",
+    "test": "npm --prefix platform test",
+    "test:database": "npm --prefix platform run test:database",
+    "db:generate": "npm --prefix platform run db:generate",
+    "db:deploy": "npm --prefix platform run db:deploy",
+    "db:seed": "npm --prefix platform run db:seed",
+    "prepare:hostinger": "npm --prefix platform run prepare:hostinger",
+    "start:legacy": "node legacy-server.cjs",
+    "test:legacy": "node --test test/*.test.js"
+  }
+}

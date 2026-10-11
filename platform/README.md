@@ -126,3 +126,10 @@ The package command writes `.local/hostinger-package` with standalone runtime, s
 See [HOSTINGER_VALIDATION.md](docs/HOSTINGER_VALIDATION.md) for the full requirement checklist, actual test counts, runtime package checks and external launch prerequisites. Production audit reports zero findings. Patched Nodemailer/MariaDB/MySQL2/deepmerge versions are pinned with targeted overrides; Auth.js's optional email peer range still names older Nodemailer versions, while this application uses its own tested SMTP delivery rather than Auth.js email-provider delivery. Credentials/Google ownership and database tests pass with the patched dependency set. Five remaining development-only audit findings are the unpatched ESLint braces chain; they are excluded from the standalone runtime. Do not run `npm audit fix --force` to downgrade the framework.
 
 Local mobile Lighthouse measured 92 performance, 100 accessibility and 100 best practices. The final customer host still needs its own performance/SEO report; 95+ performance is a target, not a verified claim.
+
+
+## Hostinger repository-import warning
+
+GitHub's repository default branch was still `hostinger`, whose PHP files have no `package.json`. If the import screen reports a missing package file, open GitHub repository Settings → General → Default branch and change the default to **platform**, then refresh/reselect the repository in Hostinger. Keep the existing PHP deployment's explicit `hostinger` branch unchanged. Do not choose **Deploy as static**: the accounts, database, checkout, protected learning and administrator features require Node.
+
+Recommended application root remains **platform**, branch **platform**. The repository root now also contains a tested Node bootstrap: root `npm ci` installs the locked platform dependencies, root `npm run build` builds Next, and root `npm start` / `server.js` starts the full platform. Thus root `.` is also supported if the importer cannot select a subdirectory. There is no need to move the app into `public_html`. The old local demonstration is kept as `legacy-server.cjs` with `start:legacy` / `test:legacy`; it is never the default production entry point.

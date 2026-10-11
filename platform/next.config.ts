@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
+const applicationRoot = fileURLToPath(new URL(".", import.meta.url));
 const config: NextConfig = {
+  outputFileTracingRoot: applicationRoot,
+  turbopack: { root: applicationRoot },
   output: "standalone",
   outputFileTracingExcludes: {
     "*": [".env*", ".local/**", "docs/archive/**", "tests/**"],

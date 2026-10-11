@@ -6,7 +6,7 @@ const os=require('node:os');
 const path=require('node:path');
 test('signup, permissions, course editing, enrollment and exam scoring',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'academy-test-'));
- const child=spawn(process.execPath,['server.js'],{cwd:path.join(__dirname,'..'),env:{...process.env,PORT:'3011',ACADEMY_DATA_DIR:dir}});
+ const child=spawn(process.execPath,['legacy-server.cjs'],{cwd:path.join(__dirname,'..'),env:{...process.env,PORT:'3011',ACADEMY_DATA_DIR:dir}});
  try{
  await new Promise((resolve,reject)=>{child.stdout.once('data',resolve);child.once('error',reject);child.once('exit',c=>reject(Error('Server exited '+c)));});
  const call=async(route,body,cookie)=>{const r=await fetch('http://localhost:3011/api/'+route,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};};

@@ -2,6 +2,10 @@
 
 The current full platform is in **[platform/](platform/README.md)** on the `platform` branch. It uses Next.js standalone with **MySQL/MariaDB**, Arabic/English pages, the academy logo palette, SAR, verified accounts, carts, pending checkout, protected learning/exams/certificates, and administration. **Payments remain OFF by default.**
 
+The root `package.json` and `server.js` also launch the full platform: run `npm ci`, `npm run build`, then `npm start`. Installation uses the locked dependencies in `platform/`. The original local demo is preserved separately as `legacy-server.cjs`.
+
+If Hostinger says “missing package.json”, ensure GitHub's **default branch is platform** (repository → Settings → General → Default branch), then refresh the repository import. The PHP `hostinger` branch has no Node package manifest. Keep its existing deployed branch unchanged.
+
 Use the [Hostinger Node.js deployment instructions](platform/README.md). The `platform` branch requires a Node.js Web App; the historical PHP application on the `hostinger` branch is retained for rollback. Do not deploy the Next.js source into PHP `public_html`. Publishing requires actual Hostinger access and private database/SMTP settings; a Git push alone does not prove the customer domain changed.
 
 ## Earlier local demonstration
@@ -11,8 +15,8 @@ A black-and-white course academy with a responsive catalog, account signup/login
 Requires Node.js 22 or newer. No external packages are required.
 
 ```sh
-npm start
-npm test
+npm run start:legacy
+npm run test:legacy
 ```
 
 The server listens on port 3000 (override with `PORT`). Register the first account to become the administrator; subsequent accounts are students. Open Dashboard to add/edit courses, lesson video URLs, uploaded resources, and exam questions. Video links can be YouTube watch/share links or direct playable HTTPS video files. Local resources are limited to 5 MB each.
