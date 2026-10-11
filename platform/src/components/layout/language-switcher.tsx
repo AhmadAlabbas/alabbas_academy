@@ -32,10 +32,10 @@ export function LanguageSwitcher({courseSlugs}: LanguageSwitcherProps) {
       onClick={switchLanguage}
       disabled={isPending}
       aria-label={`${nextLocale === 'en' ? 'English' : 'العربية'} — ${t(nextLocale === 'en' ? 'switchToEnglish' : 'switchToArabic')}`}
-      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--navy)] transition hover:bg-[var(--surface)] disabled:cursor-wait disabled:opacity-60"
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--line)] bg-surface px-3 text-sm font-semibold text-ink transition hover:bg-[var(--surface)] disabled:cursor-wait disabled:opacity-60"
     >
       <Languages className="h-4 w-4" aria-hidden="true" />
-      <span lang={nextLocale} dir={nextLocale === 'ar' ? 'rtl' : 'ltr'}>
+      <span className="hidden sm:inline" lang={nextLocale} dir={nextLocale === 'ar' ? 'rtl' : 'ltr'}>
         {nextLocale === 'en' ? 'English' : 'العربية'}
       </span>
     </button>

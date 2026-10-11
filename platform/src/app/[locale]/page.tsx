@@ -79,8 +79,8 @@ export default async function HomePage({ params }: Props) {
   const toneClasses = [
     "bg-goldsoft",
     "bg-skysoft",
-    "bg-[#e1f1ed]",
-    "bg-[#ebe8f6]",
+    "bg-[#e1f1ed] text-navy",
+    "bg-[#ebe8f6] text-navy",
   ];
   const benefits = [
     {
@@ -166,7 +166,7 @@ export default async function HomePage({ params }: Props) {
                 />
               )}
               {heroCourse.isSample && (
-                <span className="absolute start-4 top-4 rounded-full bg-white px-3 py-1.5 text-[11px] text-muted">
+                <span className="absolute start-4 top-4 rounded-full bg-surface px-3 py-1.5 text-[11px] text-muted">
                   {common("sampleCourse")}
                 </span>
               )}
@@ -199,6 +199,7 @@ export default async function HomePage({ params }: Props) {
               alt=""
               width={35}
               height={35}
+              className="academy-logo"
             />
             <div>
               <p className="text-xs font-semibold">
@@ -210,7 +211,7 @@ export default async function HomePage({ params }: Props) {
             </div>
             <Sparkles
               aria-hidden="true"
-              className="ms-2 size-5 text-[#a66d20]"
+              className="ms-2 size-5 text-warning"
             />
           </div>
         </div>
@@ -473,7 +474,7 @@ export default async function HomePage({ params }: Props) {
           </div>
           <Link
             href="/courses"
-            className="button-secondary border-gold bg-gold"
+            className="button-secondary border-gold bg-gold text-navy hover:bg-gold/90"
           >
             {t("primaryCta")}
             <ArrowUpRight className="logical-arrow size-4" />

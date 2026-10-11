@@ -46,13 +46,13 @@ export function CourseCard({
           ) : (
             <CourseCover cover={course.cover} />
           )}
-          <span className="absolute start-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-medium text-navy">
+          <span className="absolute start-4 top-4 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium text-ink">
             {labels.level}
           </span>
         </div>
         <div className="flex flex-1 flex-col p-5 pb-4">
           <div className="mb-3 flex items-center justify-between gap-3 text-xs">
-            <span className="font-medium text-[#22677f]">
+            <span className="font-medium text-accent">
               {category?.title[locale]}
             </span>
             <span className="text-muted">
@@ -66,7 +66,7 @@ export function CourseCard({
             {course.description[locale]}
           </p>
           <div className="mb-4 flex items-center gap-2.5 text-xs text-muted">
-            <span className="flex size-8 items-center justify-center rounded-full bg-goldsoft font-medium text-navy">
+            <span className="flex size-8 items-center justify-center rounded-full bg-goldsoft font-medium text-ink">
               {instructor?.name[locale].slice(0, 1)}
             </span>
             {instructor?.name[locale]}
@@ -93,7 +93,7 @@ export function CourseCard({
                 </del>
               ) : null}
             </span>
-            <span className="flex items-center gap-1.5 text-xs font-medium text-[#22677f]">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-accent">
               {labels.view}
               <ArrowUpRight
                 aria-hidden="true"

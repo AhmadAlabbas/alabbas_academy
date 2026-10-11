@@ -88,7 +88,7 @@ export default async function Page({
             {lesson.attachments.map((a) => (
               <a
                 href={`/api/media/${a.mediaAssetId}`}
-                className="mb-3 block text-[#22677f] underline"
+                className="mb-3 block text-accent underline"
                 key={a.id}
               >
                 {ar ? a.labelAr : a.labelEn}

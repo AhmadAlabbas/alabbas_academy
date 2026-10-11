@@ -7,3 +7,56 @@
 
 .field { display:block; width:100%; min-height:44px; margin-top:8px; padding:10px 12px; border:1px solid #dce3eb; border-radius:12px; background:white; color:#19253c; }
 .field:focus { outline:2px solid #28778e; outline-offset:2px; }
+
+/* Shared semantic colors keep public, learner and admin pages in one theme. */
+@layer base {
+  :root {
+    --ink: #19243c;
+    --skysoft: #e6f5fb;
+    --goldsoft: #fff3dc;
+    --accent: #22677f;
+    --primary: #19243c;
+    --primary-ink: #fff;
+    --primary-hover: #2a3d61;
+    --secondary-hover: #e6f5fb;
+    --success: #235840;
+    --success-soft: #edf8f2;
+    --danger: #813c2b;
+    --danger-soft: #fff5f1;
+    --warning: #76552e;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+    --canvas: #090c11;
+    --surface: #151b24;
+    --ink: #f1f4f9;
+    --muted: #aab5c6;
+    --line: #2b3646;
+    --skysoft: #132d3b;
+    --goldsoft: #302818;
+    --accent: #8cd4ec;
+    --primary: #79cae7;
+    --primary-ink: #102738;
+    --primary-hover: #a0def1;
+    --secondary-hover: #203142;
+    --success: #b9efcf;
+    --success-soft: #132e25;
+    --danger: #ffb5a4;
+    --danger-soft: #341e1b;
+    --warning: #f4d393;
+  }
+
+  body { color: var(--ink); }
+  .card { background: var(--surface); }
+  .button-primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .button-primary:hover { background: var(--primary-hover); }
+  .button-secondary { background: var(--surface); color: var(--ink); }
+  .button-secondary:hover { background: var(--secondary-hover); border-color: var(--blue); }
+  .hero-highlight, .eyebrow { color: var(--accent); }
+  html[data-theme='dark'] :focus-visible { outline-color: var(--blue); }
+  html[data-theme='dark'] .academy-logo { background: #fff; border-radius: .5rem; padding: .2rem; }
+}
+
+.field { border-color: var(--line); background: var(--surface); color: var(--ink); }
+.field:focus { outline-color: var(--accent); }

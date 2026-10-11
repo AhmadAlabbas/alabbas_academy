@@ -67,10 +67,10 @@ export function AccountNavigation({mobile = false, onNavigate}: {mobile?: boolea
     window.location.assign(new URL(`/${locale}`, window.location.origin).href);
   }
 
-  const wrapper = mobile ? 'flex flex-col gap-3 border-t border-line pt-4' : 'hidden items-center gap-3 lg:flex';
+  const wrapper = mobile ? 'flex flex-col gap-3 border-t border-line pt-4' : 'hidden items-center gap-3 xl:flex';
   if (!user) {
     return <div className={wrapper}>
-      <Link href="/login" onClick={onNavigate} className={mobile ? 'button-secondary w-full' : 'rounded-lg px-2 py-3 text-sm font-semibold hover:text-[#22677f]'}>{t('login')}</Link>
+      <Link href="/login" onClick={onNavigate} className={mobile ? 'button-secondary w-full' : 'rounded-lg px-2 py-3 text-sm font-semibold hover:text-accent'}>{t('login')}</Link>
       <Link href="/signup" onClick={onNavigate} className={mobile ? 'button-primary w-full' : 'button-primary min-h-11 px-4'}>{t('signup')}</Link>
     </div>;
   }
@@ -84,6 +84,6 @@ export function AccountNavigation({mobile = false, onNavigate}: {mobile?: boolea
       <LogOut aria-hidden="true" className="size-4" />
       {mobile && <span>{t(leaving ? 'signingOut' : 'signOut')}</span>}
     </button>
-    {failed && <p role="alert" className="max-w-44 text-xs text-red-700">{t('signOutError')}</p>}
+    {failed && <p role="alert" className="max-w-44 text-xs text-danger">{t('signOutError')}</p>}
   </div>;
 }

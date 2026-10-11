@@ -4,6 +4,7 @@ import { getDatabase } from "@/lib/db";
 import { requireVerifiedUser } from "@/lib/auth/session";
 import { AccountError } from "@/lib/auth/errors";
 import { entities } from "./registry";
+import { socialLink, socialPlatforms } from "@/lib/social";
 export async function requireAdmin() {
   const user = await requireVerifiedUser();
   if (!user.roles.includes("administrator"))
@@ -161,8 +162,7 @@ export async function mutateAdmin(
       "logo",
       "contact_email",
       "contact_phone",
-      "instagram",
-      "x",
+      ...socialPlatforms.map(({key}) => key),
       "payments_enabled",
       "seo_ar",
       "seo_en",
@@ -190,12 +190,9 @@ export async function mutateAdmin(
     )
       throw new AccountError("INVALID_INPUT", 400);
     if (
-      ["instagram", "x"].includes(key) &&
+      socialPlatforms.some((platform) => platform.key === key) &&
       value !== "" &&
-      !z
-        .url()
-        .refine((v) => v.startsWith("https://"))
-        .safeParse(value).success
+      !socialLink(value)
     )
       throw new AccountError("INVALID_INPUT", 400);
   }

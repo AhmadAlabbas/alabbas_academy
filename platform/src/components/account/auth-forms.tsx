@@ -44,10 +44,10 @@ export function LoginForm({callbackUrl, initialError, passwordChanged = false}: 
     })}>
       <AccountField id="login-email" type="email" dir="ltr" autoComplete="email" inputMode="email" label={t('email')} registration={form.register('email')} error={form.formState.errors.email ? t('validation.email') : undefined} />
       <PasswordField id="login-password" autoComplete="current-password" label={t('password')} registration={form.register('password')} error={form.formState.errors.password ? t('validation.passwordRequired') : undefined} />
-      <div className="text-end"><Link href="/forgot-password" className="rounded text-xs font-semibold text-[#22677f] hover:underline">{t('forgotLink')}</Link></div>
+      <div className="text-end"><Link href="/forgot-password" className="rounded text-xs font-semibold text-accent hover:underline">{t('forgotLink')}</Link></div>
       <SubmitButton pending={form.formState.isSubmitting} disabled={configured !== true}>{t('loginButton')}</SubmitButton>
     </form>
-    <p className="text-center text-sm leading-7 text-muted">{t('newHere')} <Link href={{pathname: '/signup', query: {callbackUrl: returnPath}}} className="rounded font-semibold text-navy hover:underline">{t('signupLink')}</Link></p>
+    <p className="text-center text-sm leading-7 text-muted">{t('newHere')} <Link href={{pathname: '/signup', query: {callbackUrl: returnPath}}} className="rounded font-semibold text-ink hover:underline">{t('signupLink')}</Link></p>
   </div>;
 }
 
@@ -78,7 +78,7 @@ export function SignupForm({callbackUrl}: {callbackUrl?: string}) {
       <PasswordField id="signup-confirm-password" autoComplete="new-password" label={t('confirmPassword')} registration={form.register('confirmPassword')} error={form.formState.errors.confirmPassword ? t('validation.passwordMatch') : undefined} />
       <SubmitButton pending={form.formState.isSubmitting} disabled={configured !== true || emailConfigured !== true}>{t('signupButton')}</SubmitButton>
     </form>
-    <p className="text-center text-sm leading-7 text-muted">{t('alreadyAccount')} <Link href={loginHref} className="rounded font-semibold text-navy hover:underline">{t('loginLink')}</Link></p>
+    <p className="text-center text-sm leading-7 text-muted">{t('alreadyAccount')} <Link href={loginHref} className="rounded font-semibold text-ink hover:underline">{t('loginLink')}</Link></p>
   </div>;
 }
 
@@ -96,7 +96,7 @@ export function ForgotPasswordForm() {
       <AccountField id="forgot-email" type="email" dir="ltr" autoComplete="email" inputMode="email" label={t('email')} registration={form.register('email')} error={form.formState.errors.email ? t('validation.email') : undefined} />
       <SubmitButton pending={form.formState.isSubmitting} disabled={configured !== true || emailConfigured !== true}>{t('resetEmailButton')}</SubmitButton>
     </form>}
-    <p className="text-center"><Link href="/login" className="rounded text-sm font-semibold text-[#22677f] hover:underline">{t('backToLogin')}</Link></p>
+    <p className="text-center"><Link href="/login" className="rounded text-sm font-semibold text-accent hover:underline">{t('backToLogin')}</Link></p>
   </div>;
 }
 
@@ -130,7 +130,7 @@ export function VerifyEmailForm({token}: {token: string}) {
     {configured === false && <AccountNotice code="SERVICE_UNAVAILABLE" />}
     <AccountNotice code={error} />
     {complete ? <><AccountNotice success code="EMAIL_VERIFIED" /><Link href="/account" className="button-primary w-full">{t('goToAccount')}</Link></> : validToken && error !== 'INVALID_TOKEN' ? <form onSubmit={async (event) => {event.preventDefault(); setError(null); setPending(true); const result = await accountRequest('verify-email', {token}); setPending(false); if (!result.ok) {setError(result.code ?? 'SERVICE_UNAVAILABLE'); return;} setComplete(true); notifyAccountChanged();}} className="space-y-5">
-      <p className="rounded-2xl bg-skysoft p-4 text-sm leading-7 text-[#22677f]">{t('confirmVerification')}</p>
+      <p className="rounded-2xl bg-skysoft p-4 text-sm leading-7 text-accent">{t('confirmVerification')}</p>
       <SubmitButton pending={pending} disabled={configured !== true}>{t('verifyButton')}</SubmitButton>
     </form> : <><p className="text-sm leading-7 text-muted">{t('verificationRecoveryHint')}</p><Link href="/account" className="button-secondary w-full">{t('requestVerificationLink')}</Link></>}
   </div>;

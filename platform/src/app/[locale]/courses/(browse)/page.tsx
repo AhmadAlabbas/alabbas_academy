@@ -31,14 +31,14 @@ export default async function CoursesPage({params, searchParams}: CoursesPagePro
 
   return (
     <div className="container-shell pb-20 pt-10 sm:pb-24 sm:pt-16">
-      <header className="relative mb-10 overflow-hidden rounded-3xl border border-line bg-white px-6 py-10 sm:px-10 sm:py-14">
+      <header className="relative mb-10 overflow-hidden rounded-3xl border border-line bg-surface px-6 py-10 sm:px-10 sm:py-14">
         <div aria-hidden="true" className="pointer-events-none absolute -end-10 -top-14 size-64 rounded-full border-[38px] border-skysoft opacity-80" />
         <div aria-hidden="true" className="pointer-events-none absolute bottom-5 end-20 size-12 rounded-2xl bg-goldsoft" />
         <div className="relative max-w-2xl">
           <p className="eyebrow mb-3">{t('eyebrow')}</p>
           <h1 className="section-title mb-4">{t('title')}</h1>
           <p className="section-copy max-w-xl">{t('description')}</p>
-          <p className="mt-6 inline-flex rounded-full bg-skysoft px-4 py-2 text-xs font-medium text-[#22677f]">{t('sampleNotice')}</p>
+          <p className="mt-6 inline-flex rounded-full bg-skysoft px-4 py-2 text-xs font-medium text-accent">{t('sampleNotice')}</p>
         </div>
       </header>
       <CatalogBrowser courses={sampleCourses} categories={categories} instructors={instructors} initialCategory={initialCategory} />

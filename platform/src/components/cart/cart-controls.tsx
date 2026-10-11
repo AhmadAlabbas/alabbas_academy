@@ -8,7 +8,7 @@ import { useCart } from './cart-provider';
 export function CartLinkBadge({ className = '' }: { className?: string }) {
   const t = useTranslations('Cart');
   const { count } = useCart();
-  return <Link href="/cart" className={`relative inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-navy hover:bg-skysoft ${className}`} aria-label={t('cartLabel', { count })}>
+  return <Link href="/cart" className={`relative inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-ink hover:bg-skysoft ${className}`} aria-label={t('cartLabel', { count })}>
     <ShoppingBag className="size-5" aria-hidden="true" /><span className="hidden sm:inline">{t('title')}</span>
     <span className="flex min-w-5 items-center justify-center rounded-full bg-goldsoft px-1.5 text-xs tabular-nums">{count}</span>
   </Link>;

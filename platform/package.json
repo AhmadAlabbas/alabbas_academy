@@ -15,6 +15,7 @@
     "test:database": "node --import tsx scripts/test-database.ts",
     "test:hostinger": "node --test scripts/test-hostinger-startup.mjs",
     "test:certificates": "node scripts/test-certificate-download.mjs",
+    "test:theme-navigation": "node scripts/test-theme-navigation.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:deploy": "prisma migrate deploy",

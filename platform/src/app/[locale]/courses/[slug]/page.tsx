@@ -142,7 +142,7 @@ export default async function Page({
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <div className="card p-7">
-            <p className="mb-4 text-sm text-[#22677f]">
+            <p className="mb-4 text-sm text-accent">
               {ar ? course.category.title_ar : course.category.title_en}
             </p>
             <h1 className="text-3xl font-semibold leading-relaxed sm:text-4xl">

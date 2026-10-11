@@ -9,6 +9,8 @@ import {publicCatalog,siteSettings} from '@/lib/public-data';
 import {routing} from '@/i18n/routing';
 import {arabicFont, latinFont} from '@/lib/fonts';
 import {CartProvider} from '@/components/cart/cart-provider';
+import {themeInitializationScript} from '@/lib/theme';
+import {ThemeInitializer} from '@/components/layout/theme-initializer';
 import '../globals.css';
 
 export const dynamic = 'force-dynamic';
@@ -47,8 +49,9 @@ export default async function LocaleLayout({children, params}: LocaleLayoutProps
   const [messages, t, catalog, settings] = await Promise.all([getMessages(), getTranslations('Common'),publicCatalog(),siteSettings()]);
 
   return (
-    <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} data-scroll-behavior="smooth" className={`${arabicFont.variable} ${latinFont.variable}`}>
-      <body><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify([{'@context':'https://schema.org','@type':'Organization',name:String(settings[`name_${locale}`]||t('academy')),url:siteOrigin,logo:siteOrigin+String(settings.logo||'/logo.svg')},{'@context':'https://schema.org','@type':'WebSite',name:String(settings[`name_${locale}`]||t('academy')),url:siteOrigin,inLanguage:['ar','en']}]).replace(/</g,'\\u003c')}}/>
+    <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} suppressHydrationWarning data-scroll-behavior="smooth" className={`${arabicFont.variable} ${latinFont.variable}`}>
+      <head><script dangerouslySetInnerHTML={{__html: themeInitializationScript}} /></head>
+      <body><ThemeInitializer /><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify([{'@context':'https://schema.org','@type':'Organization',name:String(settings[`name_${locale}`]||t('academy')),url:siteOrigin,logo:siteOrigin+String(settings.logo||'/logo.svg')},{'@context':'https://schema.org','@type':'WebSite',name:String(settings[`name_${locale}`]||t('academy')),url:siteOrigin,inLanguage:['ar','en']}]).replace(/</g,'\\u003c')}}/>
         <NextIntlClientProvider messages={messages}>
           <CartProvider catalog={catalog.courses}>
           <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-[var(--navy)] focus:px-5 focus:py-3 focus:text-white">
