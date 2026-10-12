@@ -98,6 +98,8 @@ Run a real **Moyasar test-mode payment and refund** before adding live keys. The
 
 ## Replace sample content without editing code
 
+The public course catalog has **All courses / Arabic courses / English courses** filters. These filter the course's content language, independently of the interface language, and combine with search, category, level and price. Set **Course content language** in the course editor to Arabic, English, or both if the actual course supports both. The admin course list has the same language filter; choose a language and press **Apply**. Public links can include `?language=ar` or `?language=en`; clearing filters resets the language selection too.
+
 1. Sign in as the seeded administrator and open `/ar/admin` or `/en/admin` (also linked from My Courses).
 2. Categories and instructors: create/edit Arabic and English fields. Related records are selected by name throughout the editor.
 3. Courses: choose **Add new**, enter both titles/descriptions, select a category and enter the price in **SAR** (for example, `199.95`). References and Arabic/English links are generated automatically; **More details** lets you change them and SEO descriptions. Add optional outcomes, requirements, comparison price, languages and featured flag. Disable `isSample` only when content is real. Assign instructors with **Add instructor** and select a name.

@@ -1,5 +1,6 @@
 import {entities, type Field} from './registry';
 import {sarToHalalas} from '@/lib/money';
+import {courseLanguages} from '@/lib/catalog';
 
 export type AdminRow = Record<string, unknown>;
 export type AdminDraft = Record<string, string | boolean>;
@@ -27,6 +28,7 @@ export function slugFromTitle(title: string) {
 }
 
 export function displayField(field: Field, value: unknown): string | boolean {
+  if (field.key === 'languages') return courseLanguages(value == null ? undefined : String(value)).join(',');
   if (field.type === 'boolean') return Boolean(value);
   if (field.type === 'json') return JSON.stringify(value ?? {});
   if (field.type === 'money' || field.type === 'percentage') {

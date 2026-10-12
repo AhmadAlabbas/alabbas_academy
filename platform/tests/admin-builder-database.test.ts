@@ -92,4 +92,17 @@ describe.skipIf(!configured)('Admin course content editing', () => {
     const second = await create('blocks', {...values, key: 'second'});
     expect([first.position, second.position]).toEqual([0, 1]);
   });
+  it('filters complete course language codes before counting and paginating admin results', async () => {
+    const db = getDatabase();
+    await db.course.update({where: {id: courseId}, data: {languages: 'ar'}});
+    await db.course.update({where: {id: secondCourseId}, data: {languages: 'en'}});
+    const arabic = await listAdmin('courses', new URLSearchParams({language: 'ar'}));
+    const english = await listAdmin('courses', new URLSearchParams({language: 'en'}));
+    expect(arabic.total).toBe(1); expect((arabic.rows as AdminRow[]).map(row => row.id)).toEqual([courseId]);
+    expect(english.total).toBe(1); expect((english.rows as AdminRow[]).map(row => row.id)).toEqual([secondCourseId]);
+    await db.course.update({where: {id: courseId}, data: {languages: ' AR , en '}});
+    expect((await listAdmin('courses', new URLSearchParams({language: 'en', q: 'Editor course'}))).total).toBe(1);
+    await db.course.update({where: {id: secondCourseId}, data: {languages: 'french'}});
+    expect((await listAdmin('courses', new URLSearchParams({language: 'en'}))).total).toBe(1);
+  });
 });

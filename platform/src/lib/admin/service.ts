@@ -57,6 +57,13 @@ export async function listAdmin(entity: string, query: URLSearchParams) {
       ? { status }
       : {}),
   };
+  const language = query.get('language');
+  if (entity === 'courses' && (language === 'ar' || language === 'en')) {
+    // Match complete CSV language codes, including whitespace in older records.
+    const pattern = `(^|,)[[:space:]]*${language}[[:space:]]*(,|$)`;
+    const matches = await getDatabase().$queryRaw<Array<{id: string}>>`SELECT id FROM courses WHERE LOWER(languages) REGEXP ${pattern}`;
+    where.AND = [{id: {in: matches.map(course => course.id)}}];
+  }
   const select =
     entity === "users"
       ? {

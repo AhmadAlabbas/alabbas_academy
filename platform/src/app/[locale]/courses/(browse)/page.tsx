@@ -9,7 +9,7 @@ import {pageMetadata} from '@/lib/seo';
 
 type CoursesPageProps = {
   params: Promise<{locale: string}>;
-  searchParams: Promise<{category?: string | string[]}>;
+  searchParams: Promise<{category?: string | string[]; language?: string | string[]}>;
 };
 
 export async function generateMetadata({params}: CoursesPageProps): Promise<Metadata> {
@@ -28,6 +28,7 @@ export default async function CoursesPage({params, searchParams}: CoursesPagePro
   const initialCategory = typeof search.category === 'string' && categories.some((category) => category.slug === search.category)
     ? search.category
     : '';
+  const initialLanguage = search.language === 'ar' || search.language === 'en' ? search.language : '';
 
   return (
     <div className="container-shell pb-20 pt-10 sm:pb-24 sm:pt-16">
@@ -41,7 +42,7 @@ export default async function CoursesPage({params, searchParams}: CoursesPagePro
           <p className="mt-6 inline-flex rounded-full bg-skysoft px-4 py-2 text-xs font-medium text-accent">{t('sampleNotice')}</p>
         </div>
       </header>
-      <CatalogBrowser courses={sampleCourses} categories={categories} instructors={instructors} initialCategory={initialCategory} />
+      <CatalogBrowser courses={sampleCourses} categories={categories} instructors={instructors} initialCategory={initialCategory} initialLanguage={initialLanguage} />
     </div>
   );
 }

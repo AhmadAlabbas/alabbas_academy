@@ -17,6 +17,8 @@ export default async function Page({
   const q = paramsQuery.q || '';
   const parent = paramsQuery[parentFields[entity]] || '';
   const query = new URLSearchParams({q});
+  const language = paramsQuery.language === 'ar' || paramsQuery.language === 'en' ? paramsQuery.language : '';
+  if (language) query.set('language', language);
   if (parent) query.set(parentFields[entity], parent);
   if (paramsQuery.edit) query.set('edit', paramsQuery.edit);
   const [data, lookups] = await Promise.all([
@@ -30,11 +32,12 @@ export default async function Page({
       ? {key: `${entity}-${crypto.randomUUID().slice(0, 12)}`} : {};
   return (
     <AdminPanel
-      key={entity + q + parent + (paramsQuery.edit || '') + (paramsQuery.create || '')}
+      key={entity + q + parent + language + (paramsQuery.edit || '') + (paramsQuery.create || '')}
       entity={entity}
       initial={data}
       lookups={lookups}
       initialQuery={q}
+      initialLanguage={language}
       initialParent={parent}
       openEditor={Boolean(paramsQuery.edit || paramsQuery.create === '1')}
       initialRecord={initialRecord}

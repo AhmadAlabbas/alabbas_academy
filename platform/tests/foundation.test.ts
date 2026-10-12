@@ -87,6 +87,17 @@ function catalogFixture(): Course[] {
 const ids = (courses: Course[]) => courses.map((course) => course.id);
 
 describe('Discovering courses', () => {
+  it('filters the course teaching language independently of the interface language', () => {
+    const courses = catalogFixture().map((course, index) => ({...course, languages: ['ar', 'en', 'ar,en', 'en,ar'][index]}));
+    expect(ids(filterCourses(courses, 'en', {language: 'ar'}))).toEqual(['design-low', 'web-course', 'business-course']);
+    expect(ids(filterCourses(courses, 'ar', {language: 'en'}))).toEqual(['design-advanced', 'web-course', 'business-course']);
+    expect(filterCourses(courses, 'ar', {})).toHaveLength(4);
+  });
+  it('matches complete language codes and accepts older whitespace or mixed-case CSV values', () => {
+    const courses = catalogFixture().map((course, index) => ({...course, languages: [' AR , en ', 'french', 'en', 'ar'][index]}));
+    expect(ids(filterCourses(courses, 'en', {language: 'en'}))).toEqual(['design-low', 'web-course']);
+    expect(ids(filterCourses(courses, 'ar', {language: 'ar', category: 'design', maximumPrice: 34900}))).toEqual(['design-low']);
+  });
   it('finds an Arabic title despite vowel marks, alif variants, and decorative stretching', () => {
     expect(ids(filterCourses(catalogFixture(), 'ar', {query: '  اَساـسِياَت  '}))).toEqual(['design-low']);
   });

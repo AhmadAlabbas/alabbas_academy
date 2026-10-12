@@ -93,7 +93,7 @@ export const entities: Record<string, Entity> = {
       ...bilingual("seo", "وصف محركات البحث", "SEO description", true, false),
       f("previewUrl", "رابط المعاينة", "Preview video URL"),
       f("thumbnailUrl", "رابط الصورة", "Thumbnail URL"),
-      f("languages", "اللغات (ar,en)", "Languages (ar,en)"),
+      f("languages", "لغة محتوى الدورة", "Course content language", "select", true, ['ar', 'en', 'ar,en']),
       f("featured", "مميزة", "Featured", "boolean"),
       f("isSample", "دورة تجريبية", "Sample course", "boolean"),
     ],
@@ -428,6 +428,9 @@ export const entities: Record<string, Entity> = {
 
 // Display readable bilingual labels while keeping stable database values.
 const valueNames: Record<string, [string, string]> = {
+  ar: ['العربية', 'Arabic'],
+  en: ['الإنجليزية', 'English'],
+  'ar,en': ['العربية والإنجليزية', 'Arabic and English'],
   DRAFT: ["مسودة", "Draft"],
   PUBLISHED: ["منشور", "Published"],
   ARCHIVED: ["مؤرشف", "Archived"],

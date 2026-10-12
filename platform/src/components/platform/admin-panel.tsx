@@ -17,6 +17,7 @@ export function AdminPanel({
   initial,
   lookups = {},
   initialQuery = "",
+  initialLanguage = "",
   initialParent = "",
   openEditor = false,
   initialRecord,
@@ -27,6 +28,7 @@ export function AdminPanel({
   openEditor?: boolean;
   initialRecord?: Row;
   initialQuery?: string;
+  initialLanguage?: string;
   initial: { rows: unknown; total: number; page: number };
 }) {
   const ar = useLocale() === "ar",
@@ -37,6 +39,7 @@ export function AdminPanel({
     [page, setPage] = useState(1),
     [query, setQuery] = useState(initialQuery),
     [status, setStatus] = useState(""),
+    [language, setLanguage] = useState(initialLanguage),
     [current, setCurrent] = useState<Row | null>(openEditor ? initialRecord || {} : null),
     [lookupChoices, setLookupChoices] = useState(lookups),
     [parentValue, setParentValue] = useState(initialParent),
@@ -54,7 +57,7 @@ export function AdminPanel({
   }
   async function reload(p = page) {
     const r = await fetch(
-      `/api/admin/${entity}?page=${p}&q=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}&includeLookups=1${parentField && parentValue ? '&' + parentField + '=' + encodeURIComponent(parentValue) : ''}`,
+      `/api/admin/${entity}?page=${p}&q=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}&language=${language}&includeLookups=1${parentField && parentValue ? '&' + parentField + '=' + encodeURIComponent(parentValue) : ''}`,
     );
     if (!r.ok) {
       setMessage(label("تعذر تحميل البيانات", "Unable to load data"));
@@ -114,6 +117,14 @@ export function AdminPanel({
       {courseId && <Link href={`/admin/courses/${courseId}`} className="button-secondary inline-flex">{label('العودة إلى محتوى الدورة', 'Back to course content')}</Link>}
       {picker && <AdminActionPicker selection={picker} lookups={lookupChoices} onClose={() => setPicker(null)} onSubmit={action} />}
       <div className="card flex flex-wrap gap-3 p-4">
+        {entity === 'courses' && <label className="min-w-0">
+          {label('لغة محتوى الدورة', 'Course content language')}
+          <select className="field" value={language} onChange={event => setLanguage(event.target.value)}>
+            <option value="">{label('جميع الدورات', 'All courses')}</option>
+            <option value="ar">{label('دورات عربية', 'Arabic courses')}</option>
+            <option value="en">{label('دورات إنجليزية', 'English courses')}</option>
+          </select>
+        </label>}
         {parentField && <label className="min-w-0 flex-1 sm:min-w-52">
           {ar ? config.fields.find(field => field.key === parentField)?.ar : config.fields.find(field => field.key === parentField)?.en}
           <select className="field" value={parentValue} onChange={event => setParentValue(event.target.value)}>

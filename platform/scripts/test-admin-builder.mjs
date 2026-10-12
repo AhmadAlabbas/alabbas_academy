@@ -85,6 +85,7 @@ try {
   await page.locator('[name="description_ar"]').fill('تعلم من خلال دورة أنشئت بالمحرر.');
   await page.locator('[name="description_en"]').fill('A course authored through the actual editor.');
   await page.locator('[name="categoryId"]').selectOption({index: 1});
+  await page.locator('[name="languages"]').selectOption('ar');
   await page.locator('[name="priceHalalas"]').fill('199.95');
   await page.locator('[name="compareAtHalalas"]').fill('249.00');
   const upload = page.waitForResponse(response => response.url() === route('/api/admin/upload'));
@@ -180,6 +181,28 @@ try {
   await actionDialog(updatedRow.getByRole('button', {name: 'Add instructor', exact: true}));
   assert.equal((await db.query('SELECT * FROM course_instructors WHERE courseId=?', [courseId])).length, 1);
   checks.push('Edit and publish a course without changing its price; assign an instructor by name');
+
+  await page.goto(route('/en/courses?language=ar'));
+  await page.getByRole('button', {name: 'Arabic courses', exact: true}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Arabic courses', exact: true}).getAttribute('aria-pressed'), 'true');
+  await page.locator('#search').fill(title);
+  await page.getByRole('heading', {name: title, exact: true}).waitFor();
+  await page.getByRole('button', {name: 'English courses', exact: true}).click();
+  await page.getByRole('heading', {name: title, exact: true}).waitFor({state: 'detached'});
+  assert.equal(new URL(page.url()).searchParams.get('language'), 'en');
+  await page.getByRole('button', {name: 'All courses', exact: true}).click();
+  await page.getByRole('heading', {name: title, exact: true}).waitFor();
+  await page.getByRole('button', {name: 'English courses', exact: true}).click();
+  await page.getByRole('heading', {name: title, exact: true}).waitFor({state: 'detached'});
+  await page.getByRole('button', {name: 'Clear filters', exact: true}).last().click();
+  await page.getByRole('heading', {name: title, exact: true}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'All courses', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert.equal(new URL(page.url()).searchParams.get('language'), null);
+  await page.goto(route('/en/admin/courses?language=en'));
+  assert.equal(await page.getByRole('row').filter({hasText: title}).count(), 0);
+  await page.goto(route('/en/admin/courses?language=ar'));
+  await page.getByRole('row').filter({hasText: title}).waitFor();
+  checks.push('Filter Arabic/English courses in the public catalog and admin list independently of interface language');
 
   await page.goto(route('/en/admin/users?q=' + encodeURIComponent(`builder-${userId}@example.test`)));
   await actionDialog(page.getByRole('button', {name: 'Free enrollment', exact: true}), title);
