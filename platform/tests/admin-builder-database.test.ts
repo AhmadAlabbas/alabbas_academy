@@ -11,6 +11,7 @@ describe.skipIf(!configured)('Admin course content editing', () => {
   let actorId: string, categoryId: string, courseId: string, secondCourseId: string, pageId: string;
   let sectionId: string, lessonId: string, examId: string, questionId: string;
   const assets: string[] = [];
+  const languageCourseIds: string[] = [];
   beforeAll(async () => {
     const url = new URL(configured!);
     if (!['localhost', '127.0.0.1'].includes(url.hostname) || !url.pathname.startsWith('/academy_test_')) throw Error('Isolated local database required');
@@ -25,7 +26,7 @@ describe.skipIf(!configured)('Admin course content editing', () => {
   });
   afterAll(async () => {
     const db = getDatabase();
-    await db.course.deleteMany({where: {id: {in: [courseId, secondCourseId].filter(Boolean)}}});
+    await db.course.deleteMany({where: {id: {in: [courseId, secondCourseId, ...languageCourseIds].filter(Boolean)}}});
     await db.mediaAsset.deleteMany({where: {id: {in: assets}}});
     await db.page.delete({where: {id: pageId}});
     await db.category.delete({where: {id: categoryId}});
@@ -36,7 +37,7 @@ describe.skipIf(!configured)('Admin course content editing', () => {
   it('saves course editor SAR values to the database without requiring optional copy', async () => {
     const unique = randomUUID();
     const draft = initialDraft('courses', {key: 'builder-' + unique});
-    Object.assign(draft, {title_ar: 'دورة المحرر', title_en: 'Editor course', slug_ar: 'دورة-' + unique, slug_en: 'editor-' + unique, categoryId, description_ar: 'وصف', description_en: 'Description', priceHalalas: '199.95'});
+    Object.assign(draft, {languages: 'ar,en', title_ar: 'دورة المحرر', title_en: 'Editor course', slug_ar: 'دورة-' + unique, slug_en: 'editor-' + unique, categoryId, description_ar: 'وصف', description_en: 'Description', priceHalalas: '199.95'});
     courseId = String((await create('courses', serializeDraft('courses', draft))).id);
     const row = await getDatabase().course.findUniqueOrThrow({where: {id: courseId}});
     expect(row).toMatchObject({priceHalalas: 19995, status: 'DRAFT', requirements_ar: '', seo_en: '', minutes: 0});
@@ -105,4 +106,45 @@ describe.skipIf(!configured)('Admin course content editing', () => {
     await db.course.update({where: {id: secondCourseId}, data: {languages: 'french'}});
     expect((await listAdmin('courses', new URLSearchParams({language: 'en'}))).total).toBe(1);
   });
+  it('authors Arabic-only and English-only curricula without requiring translations', async () => {
+    for (const language of ['ar', 'en']) {
+      const draft = initialDraft('courses', {key: 'single-' + randomUUID()});
+      Object.assign(draft, {languages: language, categoryId, ['title_' + language]: language === 'ar' ? 'دورة عربية فقط' : 'English only course', ['description_' + language]: 'Course description', ['slug_' + language]: 'single-' + randomUUID()});
+      const course = await create('courses', serializeDraft('courses', draft));
+      const id = String(course.id); languageCourseIds.push(id);
+      const other = language === 'ar' ? 'en' : 'ar';
+      expect(course['title_' + other]).toBe('');
+      expect(course['slug_' + other]).toMatch(/^unavailable-/);
+      const section = await create('sections', {courseId: id, ['title_' + language]: 'Section'});
+      const lesson = await create('lessons', {sectionId: section.id, ['title_' + language]: 'Lesson', kind: 'VIDEO', videoUrl: 'https://www.youtube.com/watch?v=aircAruvnKk', isPublished: true});
+      const attachment = await create('attachments', {lessonId: lesson.id, mediaAssetId: assets[2], [language === 'ar' ? 'labelAr' : 'labelEn']: 'Single-language handout'});
+      expect(attachment[language === 'ar' ? 'labelEn' : 'labelAr']).toBe('');
+      await mutateAdmin('courses', id, {status: 'PUBLISHED'}, actorId);
+      const choices = await adminLookups();
+      expect(choices.courseId.find(item => item.id === id)).toMatchObject({languages: language, title_en: course['title_' + language], title_ar: course['title_' + language]});
+    }
+  });
+  it('blocks publication of missing lesson content and incomplete required exams', async () => {
+    const id = languageCourseIds[0];
+    const exam = await create('exams', {courseId: id, title_ar: 'اختبار', passingBasisPoints: 7000, isRequired: true, isPublished: false});
+    await mutateAdmin('courses', id, {status: 'DRAFT'}, actorId);
+    await expect(mutateAdmin('courses', id, {status: 'PUBLISHED'}, actorId)).rejects.toThrow('not ready');
+    await mutateAdmin('exams', String(exam.id), {isPublished: true}, actorId);
+    const question = await create('questions', {examId: exam.id, prompt_ar: 'اختر الإجابة', points: 1, kind: 'SINGLE_CHOICE'});
+    await create('options', {questionId: question.id, label_ar: 'صحيحة', isCorrect: true});
+    await expect(mutateAdmin('courses', id, {status: 'PUBLISHED'}, actorId)).rejects.toThrow('not ready');
+    await create('options', {questionId: question.id, label_ar: 'أخرى', isCorrect: false});
+    await mutateAdmin('courses', id, {status: 'PUBLISHED'}, actorId);
+    await expect(mutateAdmin('courses', id, {languages: 'en'}, actorId)).rejects.toThrow();
+  });
+
+  it('requires a video source for published lessons and checks existing curriculum when changing published course language', async () => {
+    const id = languageCourseIds[0];
+    const db = getDatabase();
+    const section = await db.section.findFirstOrThrow({where: {courseId: id}});
+    await expect(create('lessons', {sectionId: section.id, title_ar: 'درس بدون فيديو', kind: 'VIDEO', isPublished: true})).rejects.toThrow();
+    await expect(mutateAdmin('courses', id, {languages: 'en', title_en: 'Changed title', description_en: 'Changed description'}, actorId)).rejects.toThrow('not ready');
+    expect((await db.course.findUniqueOrThrow({where: {id}})).languages).toBe('ar');
+  });
+
 });

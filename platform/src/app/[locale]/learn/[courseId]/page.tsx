@@ -1,3 +1,4 @@
+import {learningProgress} from '@/lib/learning/progress';
 import { requireVerifiedUser } from "@/lib/auth/session";
 import { enrollmentFor } from "@/lib/learning/service";
 import { redirect, notFound } from "next/navigation";
@@ -20,17 +21,8 @@ export default async function Page({
   } catch {
     notFound();
   }
-  const lessons = enrollment.course.sections.flatMap((s) => s.lessons),
-    latest = enrollment.progress
-      .filter((p) => !p.completedAt)
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
-  const next =
-    lessons.find((l) => l.id === latest?.lessonId) ||
-    lessons.find(
-      (l) =>
-        !enrollment.progress.some((p) => p.lessonId === l.id && p.completedAt),
-    ) ||
-    lessons[0];
+  const lessons = enrollment.course.sections.flatMap(section => section.lessons);
+  const {next} = learningProgress(lessons, enrollment.progress);
   if (!next) notFound();
   redirect(`/${locale}/learn/${courseId}/${next.id}`);
 }

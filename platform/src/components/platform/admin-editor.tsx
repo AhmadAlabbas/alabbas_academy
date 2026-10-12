@@ -4,6 +4,8 @@ import {useId, useRef, useState, useEffect} from 'react';
 import {useLocale} from 'next-intl';
 import Image from 'next/image';
 import {Upload, X, Save, ChevronDown} from 'lucide-react';
+import {courseEntities, fieldLocale, contentFieldRequired} from '@/lib/course-content';
+import {courseLanguages} from '@/lib/catalog';
 import {entities, adminValueLabel, type Field} from '@/lib/admin/registry';
 import {initialDraft, serializeDraft, slugFromTitle, uploadFields, parentFields, type AdminLookups, type AdminRow} from '@/lib/admin/forms';
 
@@ -17,6 +19,9 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
   const config = entities[entity];
   const creating = !row[config.identity || 'id'];
   const [draft, setDraft] = useState(() => initialDraft(entity, row, parentValue));
+  const owningParent = lookups[parentFields[entity]]?.find(item => item.id === draft[parentFields[entity]]);
+  const languages = entity === 'courses' ? String(draft.languages || 'ar') : owningParent?.languages || 'ar,en';
+  const allowedFields = config.fields.filter(field => !courseEntities.has(entity) || !fieldLocale(field.key) || courseLanguages(languages).includes(fieldLocale(field.key)!));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -31,9 +36,9 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
   function change(key: string, value: string | boolean) {
     setDraft(previous => {
       const next = {...previous, [key]: value};
-      if (creating && entity === 'courses' && ['title_ar', 'title_en'].includes(key)) {
+      if (entity === 'courses' && ['title_ar', 'title_en'].includes(key)) {
         const slug = key.replace('title_', 'slug_');
-        if (!previous[slug] || previous[slug] === previous.key || previous[slug] === slugFromTitle(String(previous[key] || ''))) {
+        if ((creating || String(row[slug] || '').startsWith('unavailable-')) && (!previous[slug] || String(previous[slug]).startsWith('unavailable-') || previous[slug] === previous.key || previous[slug] === slugFromTitle(String(previous[key] || '')))) {
           next[slug] = slugFromTitle(String(value)) || String(previous.key);
         }
       }
@@ -63,7 +68,7 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setFieldErrors({});
     try {
-      const data = serializeDraft(entity, draft);
+      const data = serializeDraft(entity, draft, languages);
       const response = await fetch(`/api/admin/${entity}`, {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id: row[config.identity || 'id'] ?? null, data}),
@@ -71,7 +76,7 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
       const result = await response.json();
       if (!response.ok) {
         setFieldErrors(result.fieldErrors || {});
-        setError(result.code === 'DUPLICATE_VALUE'
+        setError(result.code === 'COURSE_NOT_READY' ? text('الدورة غير جاهزة للنشر. احفظها كمسودة وأكمل قائمة الجاهزية في «إدارة المحتوى».', 'This course is not ready to publish. Save it as a draft and complete the checklist in Manage content.') : result.code === 'DUPLICATE_VALUE'
           ? text('هذا الرابط أو المعرّف مستخدم بالفعل. غيّره من التفاصيل الإضافية.', 'This link or reference is already in use. Change it under More details.')
           : result.code === 'INVALID_RELATION'
             ? text('السجل المختار لم يعد متاحًا. اختر سجلًا آخر.', 'A selected item is no longer available. Choose another item.')
@@ -88,9 +93,10 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
     'position', 'slug_ar', 'slug_en', 'seo_ar', 'seo_en',
     ...(['courses', 'categories', 'instructors', 'tags', 'faqs'].includes(entity) ? ['key'] : []),
   ]);
-  const visible = config.fields.filter(field => !advanced.has(field.key));
-  const extra = config.fields.filter(field => advanced.has(field.key));
+  const visible = allowedFields.filter(field => !advanced.has(field.key)).sort((a, b) => Number(b.key === 'languages') - Number(a.key === 'languages'));
+  const extra = allowedFields.filter(field => advanced.has(field.key));
   const fieldView = (field: Field) => {
+    const required = field.required || (courseEntities.has(entity) && contentFieldRequired(entity, field.key, draft.kind));
     const options = lookups[field.key];
     const value = draft[field.key];
     const fieldId = id + '-' + field.key;
@@ -98,19 +104,19 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
     const isNumber = ['number', 'money', 'percentage'].includes(field.type || '');
     return <div key={field.key} className={`min-w-0 ${field.type === 'textarea' || field.type === 'json' ? 'md:col-span-2' : ''}`}>
       <label htmlFor={fieldId} className="mb-2 block text-sm font-medium">
-        {ar ? field.ar : field.en}{field.required && <span aria-hidden="true" className="ms-1 text-danger">*</span>}
+        {ar ? field.ar : field.en}{required && <span aria-hidden="true" className="ms-1 text-danger">*</span>}
       </label>
       {field.type === 'boolean' ? <label className="flex min-h-11 items-center gap-3 rounded-xl border border-line bg-canvas px-3">
         <input id={fieldId} name={field.key} className="size-5 accent-[var(--blue)]" type="checkbox" checked={value === true} onChange={event => change(field.key, event.target.checked)} />
         <span className="text-sm text-muted">{text('تفعيل', 'Enabled')}</span>
-      </label> : options ? <select id={fieldId} name={field.key} className="field" required={field.required} value={String(value || '')} onChange={event => change(field.key, event.target.value)} aria-invalid={errors?.length ? true : undefined}>
-        <option value="">{field.required ? text('اختر…', 'Choose…') : text('بدون', 'None')}</option>
+      </label> : options ? <select id={fieldId} name={field.key} className="field" required={required} value={String(value || '')} onChange={event => change(field.key, event.target.value)} aria-invalid={errors?.length ? true : undefined}>
+        <option value="">{required ? text('اختر…', 'Choose…') : text('بدون', 'None')}</option>
         {value && !options.some(item => item.id === value) && <option value={String(value)}>{text('الاختيار المحفوظ', 'Saved selection')}</option>}
         {options.map(item => <option value={item.id} key={item.id}>{ar ? item.title_ar || item.title_en : item.title_en || item.title_ar}</option>)}
-      </select> : field.type === 'select' ? <select id={fieldId} name={field.key} className="field" required={field.required} value={String(value || '')} onChange={event => change(field.key, event.target.value)}>
+      </select> : field.type === 'select' ? <select id={fieldId} name={field.key} className="field" required={required} value={String(value || '')} onChange={event => change(field.key, event.target.value)}>
         {field.options?.map(option => <option key={option} value={option}>{adminValueLabel(option, ar)}</option>)}
-      </select> : field.type === 'textarea' || field.type === 'json' ? <textarea id={fieldId} name={field.key} className="field min-h-28" required={field.required} value={String(value || '')} onChange={event => change(field.key, event.target.value)} dir={field.key.endsWith('_en') || field.type === 'json' ? 'ltr' : undefined} aria-invalid={errors?.length ? true : undefined} /> : <input
-        id={fieldId} name={field.key} className="field" required={field.required}
+      </select> : field.type === 'textarea' || field.type === 'json' ? <textarea id={fieldId} name={field.key} className="field min-h-28" required={required} value={String(value || '')} onChange={event => change(field.key, event.target.value)} dir={fieldLocale(field.key) === 'ar' ? 'rtl' : fieldLocale(field.key) === 'en' || field.type === 'json' ? 'ltr' : undefined} aria-invalid={errors?.length ? true : undefined} /> : <input
+        id={fieldId} name={field.key} className="field" required={required}
         value={String(value ?? '')} onChange={event => change(field.key, event.target.value)}
         type={isNumber ? 'number' : field.type === 'date' ? 'datetime-local' : 'text'}
         min={isNumber ? (['points', 'perUserLimit', 'timeLimitMinutes', 'maximumAttempts'].includes(field.key) ? 1 : 0) : undefined}
@@ -118,12 +124,12 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
         step={field.type === 'money' || field.type === 'percentage' ? '0.01' : isNumber ? '1' : undefined}
         inputMode={field.type === 'money' || field.type === 'percentage' ? 'decimal' : isNumber ? 'numeric' : undefined}
         placeholder={field.key === 'position' ? parentFields[entity] ? text('تلقائي', 'Automatic') : '0' : undefined}
-        dir={field.key.endsWith('_en') || ['key', 'videoUrl', 'previewUrl', 'slug_en', 'languages'].includes(field.key) ? 'ltr' : undefined}
+        dir={fieldLocale(field.key) === 'ar' ? 'rtl' : fieldLocale(field.key) === 'en' || ['key', 'videoUrl', 'previewUrl', 'slug_en', 'languages'].includes(field.key) ? 'ltr' : undefined}
         aria-invalid={errors?.length ? true : undefined}
       />}
       {errors?.length ? <p role="alert" className="mt-2 text-sm text-danger">{text('راجع هذا الحقل.', 'Check this field.')}</p> : null}
       {field.key === 'isCorrect' && <p className="mt-2 text-sm text-muted">{text('اختيار هذه الإجابة يجعلها الإجابة الصحيحة الوحيدة للسؤال.', 'Selecting this answer makes it the question’s only correct answer.')}</p>}
-      {options?.length === 0 && field.required && <p className="mt-2 text-sm text-muted">{text('لا توجد خيارات بعد. أنشئ السجل المرتبط أولًا.', 'No choices yet. Create the related item first.')}</p>}
+      {options?.length === 0 && required && <p className="mt-2 text-sm text-muted">{text('لا توجد خيارات بعد. أنشئ السجل المرتبط أولًا.', 'No choices yet. Create the related item first.')}</p>}
       {uploadFields[field.key] && <div className="mt-3 flex flex-wrap items-center gap-3">
         <label className="button-secondary relative cursor-pointer gap-2">
           <Upload className="size-4" aria-hidden="true" />{text('رفع واختيار ملف', 'Upload and select a file')}

@@ -1,3 +1,4 @@
+import {courseLanguages} from '@/lib/catalog';
 import "server-only";
 import { z } from "zod";
 import { getDatabase } from "@/lib/db";
@@ -6,6 +7,8 @@ import { AccountError } from "@/lib/auth/errors";
 import { entities } from "./registry";
 import { socialLink, socialPlatforms } from "@/lib/social";
 import {parentFields} from './forms';
+import {courseReadiness, CourseNotReady, type ReadinessCourse} from './readiness';
+import {courseEntities, missingContentFields, contentText, contentLocale} from '@/lib/course-content';
 export async function requireAdmin() {
   const user = await requireVerifiedUser();
   if (!user.roles.includes("administrator"))
@@ -136,7 +139,7 @@ export function entitySchema(entity: string, partial = false) {
         .normalize()
         .min(1)
         .max(128)
-        .regex(/^[\p{L}\p{N}]+(?:[-_][\p{L}\p{N}]+)*$/u);
+        .regex(/^[\p{L}\p{N}]+(?:[-_][\p{L}\p{N}]+)*$/u).or(z.literal(""));
     if (["videoUrl", "previewUrl"].includes(field.key))
       value = z
         .string()
@@ -156,6 +159,15 @@ export function entitySchema(entity: string, partial = false) {
   return z.object(shape).strict();
 }
 import { safeEmbed } from "@/lib/media/video";
+async function relatedLanguages(entity: string, parentId: string): Promise<string> {
+  const db = getDatabase();
+  if (['sections', 'exams'].includes(entity)) return (await db.course.findUniqueOrThrow({where: {id: parentId}})).languages;
+  if (entity === 'lessons') return (await db.section.findUniqueOrThrow({where: {id: parentId}, include: {course: true}})).course.languages;
+  if (entity === 'attachments') return (await db.lesson.findUniqueOrThrow({where: {id: parentId}, include: {section: {include: {course: true}}}})).section.course.languages;
+  if (entity === 'questions') return (await db.exam.findUniqueOrThrow({where: {id: parentId}, include: {course: true}})).course.languages;
+  if (entity === 'options') return (await db.examQuestion.findUniqueOrThrow({where: {id: parentId}, include: {exam: {include: {course: true}}}})).exam.course.languages;
+  return 'ar,en';
+}
 export async function mutateAdmin(
   entity: string,
   id: string | null,
@@ -168,6 +180,30 @@ export async function mutateAdmin(
   const identity = config.identity || "id";
   if (remove && !id) throw new AccountError("INVALID_INPUT", 400);
   const parsed = remove ? {} : entitySchema(entity, Boolean(id)).parse(data);
+  if (!remove && courseEntities.has(entity)) {
+    const existing = id ? (await db.findMany({where: {[identity]: id}, take: 1}))[0] || {} : {};
+    const merged = {...existing, ...parsed};
+    const languages = entity === 'courses' ? String(merged.languages || 'ar,en') : await relatedLanguages(entity, String(merged[parentFields[entity]] || ''));
+    if (entity === 'courses') {
+      for (const locale of ['ar', 'en']) {
+        if (!merged['slug_' + locale] && !courseLanguages(languages).includes(locale as 'ar' | 'en')) {
+          parsed['slug_' + locale] = `unavailable-${crypto.randomUUID()}`;
+          merged['slug_' + locale] = parsed['slug_' + locale];
+        }
+      }
+    }
+    if (entity === 'attachments' && !id) {
+      for (const key of ['labelAr', 'labelEn']) if (parsed[key] === undefined) {parsed[key] = ''; merged[key] = '';}
+    }
+    const missing = missingContentFields(entity, merged, languages);
+    if (entity === 'lessons' && merged.isPublished && merged.kind === 'VIDEO' && !merged.videoFileId && !(merged.videoUrl && safeEmbed(String(merged.videoUrl)))) missing.push('videoUrl');
+    if (entity === 'courses' && merged.status === 'PUBLISHED' && (existing.status !== 'PUBLISHED' || courseLanguages(String(existing.languages)).join(',') !== courseLanguages(languages).join(','))) {
+      const content = id ? await getDatabase().course.findUniqueOrThrow({where: {id}, include: {sections: {include: {lessons: true}}, exams: {include: {questions: {include: {options: true}}}}}}) : {sections: [], exams: []};
+      const checks = courseReadiness({...content, ...merged} as ReadinessCourse);
+      if (checks.some(check => check.required && !check.ready)) throw new CourseNotReady(checks);
+    }
+    if (missing.length) throw new z.ZodError(missing.map(key => ({code: 'custom', path: [key], message: 'Required in the course content language.'})));
+  }
   if (entity === "settings" && !remove) {
     const key = String(parsed.key || id);
     const allowed = [
@@ -252,12 +288,12 @@ export async function mutateAdmin(
 export async function adminLookups() {
   const db = getDatabase();
   const [courses, categories, sections, lessons, exams, questions, files, instructors, tags, pages] = await Promise.all([
-    db.course.findMany({take: 1000, orderBy: {title_en: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
+    db.course.findMany({take: 1000, orderBy: {title_en: 'asc'}, select: {id: true, title_ar: true, title_en: true, languages: true}}),
     db.category.findMany({take: 1000, orderBy: {position: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
-    db.section.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}),
-    db.lesson.findMany({take: 1000, orderBy: [{sectionId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, section: {select: {title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}}}),
-    db.exam.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true}}}}),
-    db.examQuestion.findMany({take: 1000, orderBy: [{examId: 'asc'}, {position: 'asc'}], select: {id: true, prompt_ar: true, prompt_en: true, exam: {select: {title_ar: true, title_en: true, courseId: true}}}}),
+    db.section.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true, languages: true}}}}),
+    db.lesson.findMany({take: 1000, orderBy: [{sectionId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, section: {select: {title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true, languages: true}}}}}}),
+    db.exam.findMany({take: 1000, orderBy: [{courseId: 'asc'}, {position: 'asc'}], select: {id: true, title_ar: true, title_en: true, courseId: true, course: {select: {title_ar: true, title_en: true, languages: true}}}}),
+    db.examQuestion.findMany({take: 1000, orderBy: [{examId: 'asc'}, {position: 'asc'}], select: {id: true, prompt_ar: true, prompt_en: true, exam: {select: {title_ar: true, title_en: true, courseId: true, course: {select: {languages: true}}}}}}),
     db.mediaAsset.findMany({where: {status: 'READY'}, take: 1000, orderBy: {createdAt: 'desc'}, select: {id: true, originalName: true, kind: true}}),
     db.instructor.findMany({take: 1000, orderBy: {name_en: 'asc'}, select: {id: true, name_ar: true, name_en: true}}),
     db.tag.findMany({take: 1000, orderBy: {title_en: 'asc'}, select: {id: true, title_ar: true, title_en: true}}),
@@ -266,12 +302,12 @@ export async function adminLookups() {
   const asset = (file: typeof files[number], asUrl = false) => ({id: asUrl ? `/api/media/${file.id}` : file.id, title_ar: file.originalName, title_en: file.originalName});
   const images = files.filter(file => file.kind === 'IMAGE').map(file => asset(file, true));
   return {
-    courseId: courses,
+    courseId: courses.map(course => ({...course, title_ar: contentText(course, 'title', 'ar'), title_en: contentText(course, 'title', 'en')})),
     categoryId: categories,
-    sectionId: sections.map(section => ({id: section.id, courseId: section.courseId, title_ar: `${section.course.title_ar} — ${section.title_ar}`, title_en: `${section.course.title_en} — ${section.title_en}`})),
-    lessonId: lessons.map(lesson => ({id: lesson.id, courseId: lesson.section.courseId, title_ar: `${lesson.section.course.title_ar} — ${lesson.section.title_ar} — ${lesson.title_ar}`, title_en: `${lesson.section.course.title_en} — ${lesson.section.title_en} — ${lesson.title_en}`})),
-    examId: exams.map(exam => ({id: exam.id, courseId: exam.courseId, title_ar: `${exam.course.title_ar} — ${exam.title_ar}`, title_en: `${exam.course.title_en} — ${exam.title_en}`})),
-    questionId: questions.map(question => ({id: question.id, courseId: question.exam.courseId, title_ar: `${question.exam.title_ar} — ${question.prompt_ar}`, title_en: `${question.exam.title_en} — ${question.prompt_en}`})),
+    sectionId: sections.map(section => ({id: section.id, courseId: section.courseId, languages: section.course.languages, title_ar: `${contentText(section.course, 'title', 'ar')} — ${contentText(section, 'title', contentLocale(section.course.languages, 'ar'))}`, title_en: `${contentText(section.course, 'title', 'en')} — ${contentText(section, 'title', contentLocale(section.course.languages, 'en'))}`})),
+    lessonId: lessons.map(lesson => ({id: lesson.id, courseId: lesson.section.courseId, languages: lesson.section.course.languages, title_ar: `${contentText(lesson.section.course, 'title', 'ar')} — ${contentText(lesson.section, 'title', 'ar')} — ${contentText(lesson, 'title', contentLocale(lesson.section.course.languages, 'ar'))}`, title_en: `${contentText(lesson.section.course, 'title', 'en')} — ${contentText(lesson.section, 'title', 'en')} — ${contentText(lesson, 'title', contentLocale(lesson.section.course.languages, 'en'))}`})),
+    examId: exams.map(exam => ({id: exam.id, courseId: exam.courseId, languages: exam.course.languages, title_ar: `${contentText(exam.course, 'title', 'ar')} — ${contentText(exam, 'title', contentLocale(exam.course.languages, 'ar'))}`, title_en: `${contentText(exam.course, 'title', 'en')} — ${contentText(exam, 'title', contentLocale(exam.course.languages, 'en'))}`})),
+    questionId: questions.map(question => ({id: question.id, courseId: question.exam.courseId, languages: question.exam.course.languages, title_ar: `${contentText(question.exam, 'title', 'ar')} — ${contentText(question, 'prompt', contentLocale(question.exam.course.languages, 'ar'))}`, title_en: `${contentText(question.exam, 'title', 'en')} — ${contentText(question, 'prompt', contentLocale(question.exam.course.languages, 'en'))}`})),
     mediaAssetId: files.filter(file => file.kind === 'DOCUMENT').map(file => asset(file)),
     videoFileId: files.filter(file => file.kind === 'VIDEO').map(file => asset(file)),
     thumbnailUrl: images, imageUrl: images,

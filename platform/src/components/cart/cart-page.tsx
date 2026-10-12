@@ -33,7 +33,7 @@ export function CartPage() {
         {items.map(item => <li className="card flex flex-col gap-5 p-5 sm:flex-row" key={item.courseId}>
           <div className="w-full shrink-0 overflow-hidden rounded-xl sm:w-36"><CourseCover cover={item.cover} /></div>
           <div className="min-w-0 flex-1"><p className="mb-2 text-xs font-medium text-accent">{t('courseLabel')}</p>
-            <Link href={`/courses/${item.slug[locale]}`} className="block text-lg font-semibold leading-8 text-ink hover:underline">{item.title[locale]}</Link>
+            <Link href={`/courses/${item.slug[locale] || item.slug[locale === 'ar' ? 'en' : 'ar']}`} locale={item.slug[locale] ? locale : locale === 'ar' ? 'en' : 'ar'} className="block text-lg font-semibold leading-8 text-ink hover:underline">{item.title[locale]}</Link>
             <p className="mt-2 text-lg font-semibold tabular-nums">{formatSAR(item.priceHalalas, locale)}</p>
             <button type="button" disabled={loading} onClick={() => { void remove(item.courseId); }} aria-label={t('removeLabel', { title: item.title[locale] })}
               className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-muted hover:bg-dangersoft hover:text-danger disabled:opacity-50"><Trash2 className="size-4" aria-hidden="true" />{t('remove')}</button>

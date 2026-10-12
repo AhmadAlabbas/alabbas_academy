@@ -1,3 +1,4 @@
+import {contentText} from '@/lib/course-content';
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { getDatabase } from "@/lib/db";
@@ -130,8 +131,8 @@ export async function createOrder(
         left -= d;
         return {
           courseId: item.courseId,
-          titleAr: item.course.title_ar,
-          titleEn: item.course.title_en,
+          titleAr: contentText(item.course, 'title', 'ar'),
+          titleEn: contentText(item.course, 'title', 'en'),
           unitPriceHalalas: item.course.priceHalalas,
           discountHalalas: d,
           totalHalalas: item.course.priceHalalas - d,

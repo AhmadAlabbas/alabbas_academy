@@ -1,3 +1,4 @@
+import {courseLanguages} from '@/lib/catalog';
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { getDatabase } from "@/lib/db";
@@ -15,7 +16,7 @@ async function courseFor(locale: string, slug: string) {
   } catch {
     return null;
   }
-  return getDatabase().course.findFirst({
+  const course = await getDatabase().course.findFirst({
     where: {
       [locale === "en" ? "slug_en" : "slug_ar"]: slug,
       status: "PUBLISHED",
@@ -41,6 +42,7 @@ async function courseFor(locale: string, slug: string) {
       },
     },
   });
+  return course && courseLanguages(course.languages).includes(locale as Locale) ? course : null;
 }
 export async function generateMetadata({
   params,
@@ -56,7 +58,7 @@ export async function generateMetadata({
     locale === "ar" ? c.title_ar : c.title_en,
     (locale === "ar" ? c.seo_ar : c.seo_en) ||
       (locale === "ar" ? c.description_ar : c.description_en).slice(0, 160),
-    `/courses/${locale === "ar" ? c.slug_en : c.slug_ar}`,
+    courseLanguages(c.languages).includes(locale === 'ar' ? 'en' : 'ar') ? `/courses/${locale === 'ar' ? c.slug_en : c.slug_ar}` : null,
   );
 }
 export default async function Page({

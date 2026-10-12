@@ -74,13 +74,13 @@ export async function GET(
     doc.moveDown();
     doc.font(
       resolve(
-        "node_modules/@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff",
+        `node_modules/@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-${/[\u0600-\u06ff]/.test(certificate.courseTitleAr || certificate.courseTitleEn) ? "arabic" : "latin"}-400-normal.woff`,
       ),
     );
     doc
       .fontSize(18)
-      .text(certificate.courseTitleAr, { align: "center", features: ["kern"] });
-    doc
+      .text(certificate.courseTitleAr || certificate.courseTitleEn, { align: "center", features: ["kern"] });
+    if (certificate.courseTitleEn && certificate.courseTitleEn !== certificate.courseTitleAr) doc
       .font(
         resolve(
           "node_modules/@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-400-normal.woff",

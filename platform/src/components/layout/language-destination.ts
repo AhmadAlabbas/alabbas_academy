@@ -4,12 +4,12 @@ import {safeAccountReturnPath} from '@/components/account/return-path';
 const publicPaths = new Set(['/', '/courses', '/about', '/cart', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/account']);
 
 function translatedPath(pathname: string, locale: Locale, nextLocale: Locale, courseSlugs: Array<Record<Locale, string>>, fallback: string): string {
-  if (publicPaths.has(pathname)) return pathname;
+  if (publicPaths.has(pathname) || /^\/(?:my-courses|learn|admin|orders)(?:\/|$)/u.test(pathname)) return pathname;
   if (!pathname.startsWith('/courses/')) return fallback;
   try {
     const slug = decodeURIComponent(pathname.slice('/courses/'.length)).normalize('NFC');
     const course = courseSlugs.find((item) => item[locale].normalize('NFC') === slug);
-    return course ? `/courses/${course[nextLocale]}` : fallback;
+    return course ? (course[nextLocale] ? `/courses/${course[nextLocale]}` : '/courses') : fallback;
   } catch {
     return fallback;
   }

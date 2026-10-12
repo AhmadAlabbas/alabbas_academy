@@ -1,17 +1,18 @@
 import {entities, type Field} from './registry';
 import {sarToHalalas} from '@/lib/money';
+import {courseEntities, fieldLocale, contentLocale} from '@/lib/course-content';
 import {courseLanguages} from '@/lib/catalog';
 
 export type AdminRow = Record<string, unknown>;
 export type AdminDraft = Record<string, string | boolean>;
-export type LookupItem = {id: string; title_ar: string; title_en: string; courseId?: string};
+export type LookupItem = {id: string; title_ar: string; title_en: string; courseId?: string; languages?: string};
 export type AdminLookups = Record<string, LookupItem[]>;
 export const parentFields: Record<string, string> = {
   sections: 'courseId', lessons: 'sectionId', attachments: 'lessonId',
   exams: 'courseId', questions: 'examId', options: 'questionId', blocks: 'pageId',
 };
 const defaults: AdminRow = {
-  minutes: 0, points: 1, perUserLimit: 1, languages: 'ar,en',
+  minutes: 0, points: 1, perUserLimit: 1, languages: 'ar',
   passingBasisPoints: 7000, notesEnabled: true, isActive: true,
 };
 const nullableStrings = new Set(['videoFileId', 'videoUrl', 'previewUrl', 'thumbnailUrl', 'imageUrl']);
@@ -64,9 +65,11 @@ export function initialDraft(entity: string, row: AdminRow, parentValue = ''): A
   return data;
 }
 
-export function serializeDraft(entity: string, draft: AdminDraft): AdminRow {
+export function serializeDraft(entity: string, draft: AdminDraft, languages = String(draft.languages || 'ar,en')): AdminRow {
   const data: AdminRow = {};
   for (const field of entities[entity].fields) {
+    const language = fieldLocale(field.key);
+    if (courseEntities.has(entity) && language && !courseLanguages(languages).includes(language)) continue;
     const value = String(draft[field.key] ?? '').trim();
     if (field.key === 'position' && !value) continue;
     if (field.type === 'boolean') data[field.key] = draft[field.key] === true;
@@ -86,6 +89,8 @@ export function serializeDraft(entity: string, draft: AdminDraft): AdminRow {
 }
 
 export function recordTitle(row: AdminRow, arabic: boolean) {
-  return String((arabic ? row.title_ar ?? row.prompt_ar ?? row.label_ar ?? row.name_ar : row.title_en ?? row.prompt_en ?? row.label_en ?? row.name_en)
-    || row.labelAr || row.labelEn || row.name || row.number || row.email || row.key || '');
+  const preferred = row.languages ? contentLocale(String(row.languages), arabic ? 'ar' : 'en') : arabic ? 'ar' : 'en', other = preferred === 'ar' ? 'en' : 'ar';
+  return String(row['title_' + preferred] || row['prompt_' + preferred] || row['label_' + preferred] || row['name_' + preferred]
+    || row['title_' + other] || row['prompt_' + other] || row['label_' + other] || row['name_' + other]
+    || row[preferred === 'ar' ? 'labelAr' : 'labelEn'] || row.labelAr || row.labelEn || row.name || row.number || row.email || row.key || '');
 }

@@ -1,3 +1,4 @@
+import {contentLocale} from '@/lib/course-content';
 import Image from "next/image";
 import { ArrowUpRight, BookOpen, Clock3 } from "lucide-react";
 import type { Course, Locale, Category, Instructor } from "@/content/catalog";
@@ -27,10 +28,11 @@ export function CourseCard({
   instructor?: Instructor;
   labels: CourseCardLabels;
 }) {
+  const targetLocale = contentLocale(course.languages, locale);
   return (
     <article className="card course-card group">
       <Link
-        href={`/courses/${course.slug[locale]}`}
+        href={`/courses/${course.slug[targetLocale]}`} locale={targetLocale}
         className="flex flex-1 flex-col"
       >
         <div className="relative">

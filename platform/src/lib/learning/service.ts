@@ -1,3 +1,4 @@
+import {contentText} from '@/lib/course-content';
 import "server-only";
 import { randomUUID, createHmac } from "node:crypto";
 import { z } from "zod";
@@ -338,8 +339,8 @@ export async function mutateLearning(
             .update(serial)
             .digest("hex"),
           learnerName: user.name || user.email,
-          courseTitleAr: course.title_ar,
-          courseTitleEn: course.title_en,
+          courseTitleAr: contentText(course, 'title', 'ar'),
+          courseTitleEn: contentText(course, 'title', 'en'),
         },
         update: {},
       });

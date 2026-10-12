@@ -49,3 +49,12 @@ describe('Changing account language without losing the requested destination', (
     expect(new URL(reverse, 'https://academy.example').searchParams.get('callbackUrl')).toBe('/ar/cart');
   });
 });
+
+describe('Language switching inside learning and administration', () => {
+  it.each(['/my-courses', '/learn/course/lesson', '/admin/courses', '/orders/order'])('keeps the current page %s', pathname => {
+    expect(destination(pathname)).toBe(pathname);
+  });
+  it('returns to the catalog when the course has no translated version', () => {
+    expect(languageDestination({pathname: '/courses/only-english', search: '', hash: '', locale: 'en', nextLocale: 'ar', courseSlugs: [{ar: '', en: 'only-english'}]})).toBe('/courses');
+  });
+});

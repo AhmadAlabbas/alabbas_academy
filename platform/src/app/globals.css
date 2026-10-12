@@ -60,3 +60,11 @@
 
 .field { border-color: var(--line); background: var(--surface); color: var(--ink); }
 .field:focus { outline-color: var(--accent); }
+
+/* Comfortable multiline editors and consistent progress bars in both themes. */
+textarea.field { min-height:112px; resize:vertical; }
+textarea.learning-note { min-height:144px; }
+.learning-progress { appearance:none; height:8px; border:0; border-radius:999px; overflow:hidden; background:var(--line); }
+.learning-progress::-webkit-progress-bar { background:var(--line); border-radius:999px; }
+.learning-progress::-webkit-progress-value { background:var(--accent); border-radius:999px; }
+.learning-progress::-moz-progress-bar { background:var(--accent); border-radius:999px; }

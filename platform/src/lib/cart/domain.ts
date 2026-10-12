@@ -29,7 +29,7 @@ export function reconcileCart(keys: readonly string[], candidates: readonly Cart
     if (!candidate || !candidate.published || candidate.currency !== 'SAR' ||
       !Number.isSafeInteger(candidate.item.priceHalalas) || candidate.item.priceHalalas < 0 ||
       candidate.item.priceHalalas > MAX_HALALAS ||
-      !candidate.item.title.ar || !candidate.item.title.en || !candidate.item.slug.ar || !candidate.item.slug.en) {
+      !candidate.item.title.ar || !candidate.item.title.en || !(candidate.item.slug.ar || candidate.item.slug.en)) {
       rejected.push({ courseId, reason: 'UNAVAILABLE' });
       continue;
     }

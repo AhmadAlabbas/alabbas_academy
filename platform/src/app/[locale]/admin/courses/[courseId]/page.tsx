@@ -1,3 +1,5 @@
+import {courseReadiness} from '@/lib/admin/readiness';
+import {contentText, contentLocale} from '@/lib/course-content';
 import {notFound} from 'next/navigation';
 import {BookOpen, Film, FileText, ClipboardList, Plus, ArrowUpRight, Pencil, CheckCircle2} from 'lucide-react';
 import {requireAdmin} from '@/lib/admin/service';
@@ -13,11 +15,14 @@ export default async function CourseContentPage({params}: {params: Promise<{loca
   const text = (arabic: string, english: string) => ar ? arabic : english;
   const course = await getDatabase().course.findUnique({where: {id: courseId}, include: {
     sections: {orderBy: {position: 'asc'}, include: {lessons: {orderBy: {position: 'asc'}, include: {_count: {select: {attachments: true}}}}}},
-    exams: {orderBy: {position: 'asc'}, include: {questions: {orderBy: {position: 'asc'}, include: {options: {select: {isCorrect: true}}}}}},
+    exams: {orderBy: {position: 'asc'}, include: {questions: {orderBy: {position: 'asc'}, include: {options: {select: {isCorrect: true, label_ar: true, label_en: true}}}}}},
     instructors: {include: {instructor: {select: {name_ar: true, name_en: true}}}},
   }});
   if (!course) notFound();
-  const title = ar ? course.title_ar : course.title_en;
+  const language = contentLocale(course.languages, locale);
+  const title = contentText(course, 'title', locale);
+  const readiness = courseReadiness(course);
+  const ready = readiness.every(check => !check.required || check.ready);
   const lessons = course.sections.flatMap(section => section.lessons);
   const fileCount = lessons.reduce((count, lesson) => count + lesson._count.attachments, 0);
   return <div className="space-y-7">
@@ -30,7 +35,7 @@ export default async function CourseContentPage({params}: {params: Promise<{loca
           <p className="mt-3 font-semibold text-accent">{formatSAR(course.priceHalalas, ar ? 'ar' : 'en')}</p>
         </div>
         <div className="flex flex-wrap gap-3"><Link className="button-primary gap-2" href={`/admin/courses?edit=${course.id}`}><Pencil className="size-4" aria-hidden="true" />{text('تعديل تفاصيل الدورة', 'Edit course details')}</Link>
-          {course.status === 'PUBLISHED' && <Link href={`/courses/${ar ? course.slug_ar : course.slug_en}`} className="button-secondary gap-2">{text('عرض صفحة الدورة', 'View course page')}<ArrowUpRight className="size-4 logical-arrow" aria-hidden="true" /></Link>}
+          {course.status === 'PUBLISHED' && <Link href={`/courses/${contentLocale(course.languages, locale) === 'ar' ? course.slug_ar : course.slug_en}`} locale={contentLocale(course.languages, locale)} className="button-secondary gap-2">{text('عرض صفحة الدورة', 'View course page')}<ArrowUpRight className="size-4 logical-arrow" aria-hidden="true" /></Link>}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-4">
@@ -42,15 +47,20 @@ export default async function CourseContentPage({params}: {params: Promise<{loca
         ].map(([Icon, label, count]) => {const Glyph = Icon as typeof BookOpen; return <div key={String(label)} className="flex items-center gap-3 rounded-xl bg-canvas p-3"><Glyph className="size-5 shrink-0 text-accent" aria-hidden="true" /><div><p className="text-xl font-semibold">{String(count)}</p><p className="text-xs text-muted">{String(label)}</p></div></div>;})}
       </div>
     </header>
+    <section className="card p-5 sm:p-7" aria-labelledby="readiness-title">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="readiness-title" className="text-xl font-semibold">{text('قائمة جاهزية النشر', 'Publishing checklist')}</h2><span className={ready ? 'text-success' : 'text-warning'}>{ready ? text('المحتوى جاهز للنشر', 'Content is ready to publish') : text('أكمل العناصر المطلوبة', 'Complete the required items')}</span></div>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">{readiness.map(check => <li key={check.key} className="flex items-start gap-3 rounded-xl bg-canvas p-3"><span className={check.ready ? 'text-success' : 'text-warning'} aria-hidden="true">{check.ready ? '✓' : '○'}</span><div className="min-w-0"><p className="text-sm">{ar ? check.ar : check.en}</p><p className="mt-1 text-xs text-muted">{check.ready ? text('مكتمل', 'Complete') : check.required ? text('مطلوب قبل النشر', 'Required before publishing') : text('موصى به', 'Recommended')}</p></div></li>)}</ul>
+      {ready && course.status !== 'PUBLISHED' && <Link href={`/admin/courses?edit=${course.id}`} className="button-primary mt-5">{text('مراجعة التفاصيل ونشر الدورة', 'Review details and publish')}</Link>}
+    </section>
     <div className="grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <section className="min-w-0 space-y-4" aria-labelledby="course-sections-title">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="course-sections-title" className="text-2xl font-semibold">{text('محتوى الدورة', 'Course content')}</h2><Link href={`/admin/sections?courseId=${course.id}&create=1`} className="button-primary gap-2"><Plus className="size-4" aria-hidden="true" />{text('إضافة قسم', 'Add section')}</Link></div>
         {!course.sections.length && <div className="card p-7"><BookOpen className="mb-4 size-8 text-accent" aria-hidden="true" /><p className="font-semibold">{text('ابدأ بالقسم الأول', 'Start with your first section')}</p><p className="mt-2 text-sm text-muted">{text('أضف قسمًا، ثم أضف دروس الفيديو أو المقالات بداخله.', 'Add a section, then add its video or article lessons.')}</p></div>}
         {course.sections.map((section, index) => <article key={section.id} className="card min-w-0 overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-canvas p-5"><div className="min-w-0"><p className="text-xs text-muted">{text('القسم', 'Section')} {index + 1}</p><h3 className="mt-1 break-words text-lg font-semibold">{ar ? section.title_ar : section.title_en}</h3></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-canvas p-5"><div className="min-w-0"><p className="text-xs text-muted">{text('القسم', 'Section')} {index + 1}</p><h3 className="mt-1 break-words text-lg font-semibold">{contentText(section, 'title', language)}</h3></div>
             <Link className="button-secondary" href={`/admin/sections?courseId=${course.id}&edit=${section.id}`}>{text('تعديل القسم', 'Edit section')}</Link></div>
           <div className="divide-y divide-line">{section.lessons.map(lesson => <div key={lesson.id} className="flex flex-wrap items-start justify-between gap-3 p-5">
-            <div className="min-w-0 flex-1"><Link href={`/admin/lessons?sectionId=${section.id}&edit=${lesson.id}`} className="flex items-start gap-3 font-medium">{lesson.kind === 'VIDEO' ? <Film className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" /> : <FileText className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />}<span className="break-words">{ar ? lesson.title_ar : lesson.title_en}</span></Link>
+            <div className="min-w-0 flex-1"><Link href={`/admin/lessons?sectionId=${section.id}&edit=${lesson.id}`} className="flex items-start gap-3 font-medium">{lesson.kind === 'VIDEO' ? <Film className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" /> : <FileText className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />}<span className="break-words">{contentText(lesson, 'title', language)}</span></Link>
               <p className="mt-2 text-xs text-muted">{lesson.isPublished ? text('منشور', 'Published') : text('مسودة', 'Draft')} · {lesson.minutes} {text('دقيقة', 'min')} · {lesson._count.attachments} {text('ملفات', 'files')}</p></div>
             <Link className="button-secondary" href={`/admin/attachments?lessonId=${lesson.id}`}>{text('ملفات الدرس', 'Lesson files')}</Link>
           </div>)}</div>
@@ -63,7 +73,7 @@ export default async function CourseContentPage({params}: {params: Promise<{loca
           {!course.exams.length && <div className="card p-6"><ClipboardList className="mb-4 size-8 text-warning" aria-hidden="true" /><p className="text-sm text-muted">{text('أضف اختبارًا لقياس فهم المتعلم، واجعله مطلوبًا للشهادة إذا أردت.', 'Add an exam to check understanding, and optionally require it for the certificate.')}</p></div>}
           {course.exams.map(exam => {
             const ready = exam.questions.length > 0 && exam.questions.every(question => question.options.length >= 2 && question.options.filter(option => option.isCorrect).length === 1);
-            return <article key={exam.id} className="card p-5"><h3 className="break-words text-lg font-semibold">{ar ? exam.title_ar : exam.title_en}</h3>
+            return <article key={exam.id} className="card p-5"><h3 className="break-words text-lg font-semibold">{contentText(exam, 'title', language)}</h3>
               <p className="mt-2 text-sm text-muted">{exam.questions.length} {text('أسئلة', 'questions')} · {text('درجة النجاح', 'Pass mark')} {exam.passingBasisPoints / 100}%</p>
               <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-canvas px-3 py-1">{exam.isPublished ? text('منشور', 'Published') : text('مسودة', 'Draft')}</span>{exam.isRequired && <span className="rounded-full bg-goldsoft px-3 py-1 text-warning">{text('مطلوب للشهادة', 'Required for certificate')}</span>}</div>
               <p className={`mt-4 flex items-start gap-2 text-sm ${ready ? 'text-success' : 'text-muted'}`}>{ready && <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}{ready ? text('الأسئلة والإجابات جاهزة', 'Questions and answers are ready') : text('أضف الأسئلة واختر إجابة صحيحة واحدة لكل سؤال.', 'Add questions and choose one correct answer for each question.')}</p>

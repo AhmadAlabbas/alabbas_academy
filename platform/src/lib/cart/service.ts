@@ -1,3 +1,5 @@
+import {courseLanguages} from '@/lib/catalog';
+import {contentText} from '@/lib/course-content';
 import 'server-only';
 import { getDatabase } from '@/lib/db';
 import { reconcileCart, type CartCandidate, type CartItem } from './domain';
@@ -27,7 +29,7 @@ export async function updateAccountCart(userId: string, operation: CartOperation
       where: { key: { in: keys } },
       select: {
         id: true, key: true, status: true, currency: true, priceHalalas: true, coverStyle: true,
-        title_ar:true,title_en:true,slug_ar:true,slug_en:true,
+        title_ar:true,title_en:true,slug_ar:true,slug_en:true,languages:true,
         enrollments: { where: { userId, status: { in: ['ACTIVE', 'COMPLETED'] } }, select: { id: true } },
       },
     }) : [];
@@ -35,8 +37,8 @@ export async function updateAccountCart(userId: string, operation: CartOperation
       return {
         published: course.status === 'PUBLISHED', owned: course.enrollments.length > 0, currency: course.currency,
         item: {
-          courseId: course.key, title: { ar: course.title_ar, en: course.title_en },
-          slug: { ar: course.slug_ar, en: course.slug_en },
+          courseId: course.key, title: { ar: contentText(course, 'title', 'ar'), en: contentText(course, 'title', 'en') },
+          slug: { ar: courseLanguages(course.languages).includes('ar') ? course.slug_ar : '', en: courseLanguages(course.languages).includes('en') ? course.slug_en : '' },
           cover: (covers.has(course.coverStyle) ? course.coverStyle : 'design') as CartItem['cover'],
           priceHalalas: course.priceHalalas,
         },

@@ -1,3 +1,4 @@
+import {contentLocale} from '@/lib/course-content';
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -146,7 +147,7 @@ export default async function HomePage({ params }: Props) {
             className="absolute inset-x-8 inset-y-10 -z-10 rotate-6 rounded-[2.5rem] bg-blue/40"
           />
           <Link
-            href={`/courses/${heroCourse.slug[locale]}`}
+            href={`/courses/${heroCourse.slug[contentLocale(heroCourse.languages, locale)]}`} locale={contentLocale(heroCourse.languages, locale)}
             className="card block overflow-hidden p-3 transition-transform hover:-translate-y-1"
           >
             <div className="relative">

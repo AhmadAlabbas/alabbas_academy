@@ -1,4 +1,6 @@
+import {courseLanguages} from '@/lib/catalog';
 import "server-only";
+import {contentText} from "./course-content";
 import { cache } from "react";
 import { getDatabase } from "./db";
 import type { Course, Category, Instructor } from "@/content/catalog";
@@ -35,9 +37,9 @@ export const publicCatalog = cache(async () => {
   return {
     courses: rows.map((c) => ({
       id: c.key,
-      slug: { ar: c.slug_ar, en: c.slug_en },
-      title: { ar: c.title_ar, en: c.title_en },
-      description: { ar: c.description_ar, en: c.description_en },
+      slug: { ar: courseLanguages(c.languages).includes('ar') ? c.slug_ar : '', en: courseLanguages(c.languages).includes('en') ? c.slug_en : '' },
+      title: { ar: contentText(c, 'title', 'ar'), en: contentText(c, 'title', 'en') },
+      description: { ar: contentText(c, 'description', 'ar'), en: contentText(c, 'description', 'en') },
       categorySlug: c.category.key,
       instructorId: c.instructors[0]?.instructorId ?? "",
       level: (["BEGINNER", "INTERMEDIATE", "ALL_LEVELS"].includes(c.level)
@@ -61,8 +63,8 @@ export const publicCatalog = cache(async () => {
     })),
     categories: categories.map((c) => ({
       slug: c.key,
-      title: { ar: c.title_ar, en: c.title_en },
-      description: { ar: c.description_ar, en: c.description_en },
+      title: { ar: contentText(c, 'title', 'ar'), en: contentText(c, 'title', 'en') },
+      description: { ar: contentText(c, 'description', 'ar'), en: contentText(c, 'description', 'en') },
       tone: c.tone as Category["tone"],
     })),
     instructors: instructors.map((i) => ({

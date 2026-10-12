@@ -60,8 +60,8 @@ export const entities: Record<string, Entity> = {
     search: ["title_ar", "title_en", "key"],
     fields: [
       f("key", "معرّف ثابت", "Key", "text", true),
-      ...bilingual("title", "العنوان", "Title"),
-      ...bilingual("slug", "الرابط", "Slug"),
+      ...bilingual("title", "العنوان", "Title", false, false),
+      ...bilingual("slug", "الرابط", "Slug", false, false),
       f("categoryId", "التصنيف", "Category", "text", true),
       f("status", "الحالة", "Status", "select", true, [
         "DRAFT",
@@ -87,7 +87,7 @@ export const entities: Record<string, Entity> = {
         "money",
       ),
       f("minutes", "المدة بالدقائق", "Duration in minutes", "number"),
-      ...bilingual("description", "الوصف", "Description", true),
+      ...bilingual("description", "الوصف", "Description", true, false),
       ...bilingual("outcomes", "ما ستتعلمه", "Learning outcomes", true, false),
       ...bilingual("requirements", "المتطلبات", "Requirements", true, false),
       ...bilingual("seo", "وصف محركات البحث", "SEO description", true, false),
@@ -138,7 +138,7 @@ export const entities: Record<string, Entity> = {
     search: ["title_ar", "title_en", "courseId"],
     fields: [
       f("courseId", "الدورة", "Course", "text", true),
-      ...bilingual("title", "العنوان", "Title"),
+      ...bilingual("title", "العنوان", "Title", false, false),
       position,
     ],
   },
@@ -149,7 +149,7 @@ export const entities: Record<string, Entity> = {
     search: ["title_ar", "title_en", "sectionId"],
     fields: [
       f("sectionId", "قسم الدورة", "Course section", "text", true),
-      ...bilingual("title", "العنوان", "Title"),
+      ...bilingual("title", "العنوان", "Title", false, false),
       position,
       f("kind", "النوع", "Type", "select", true, ["VIDEO", "ARTICLE"]),
       f("minutes", "الدقائق", "Minutes", "number"),
@@ -178,8 +178,8 @@ export const entities: Record<string, Entity> = {
         "text",
         true,
       ),
-      f("labelAr", "العنوان العربي", "Arabic label", "text", true),
-      f("labelEn", "العنوان الإنجليزي", "English label", "text", true),
+      f("labelAr", "العنوان العربي", "Arabic label"),
+      f("labelEn", "العنوان الإنجليزي", "English label"),
       position,
     ],
   },
@@ -190,7 +190,7 @@ export const entities: Record<string, Entity> = {
     search: ["title_ar", "title_en", "courseId"],
     fields: [
       f("courseId", "الدورة", "Course", "text", true),
-      ...bilingual("title", "العنوان", "Title"),
+      ...bilingual("title", "العنوان", "Title", false, false),
       ...bilingual("instructions", "التعليمات", "Instructions", true, false),
       position,
       published,
@@ -223,7 +223,7 @@ export const entities: Record<string, Entity> = {
     search: ["prompt_ar", "prompt_en", "examId"],
     fields: [
       f("examId", "الاختبار", "Exam", "text", true),
-      ...bilingual("prompt", "السؤال", "Question", true),
+      ...bilingual("prompt", "السؤال", "Question", true, false),
       ...bilingual("explanation", "التفسير", "Explanation", true, false),
       position,
       f("points", "النقاط", "Points", "number", true),
@@ -237,7 +237,7 @@ export const entities: Record<string, Entity> = {
     search: ["label_ar", "label_en", "questionId"],
     fields: [
       f("questionId", "السؤال", "Question", "text", true),
-      ...bilingual("label", "الإجابة", "Answer"),
+      ...bilingual("label", "الإجابة", "Answer", false, false),
       position,
       f("isCorrect", "إجابة صحيحة", "Correct answer", "boolean"),
     ],
