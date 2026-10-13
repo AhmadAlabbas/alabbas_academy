@@ -46,7 +46,8 @@ try {
     ['scripts/check-deployment.mjs', '--url', base, '--environment', process.env.ACADEMY_ENVIRONMENT === 'staging' ? 'staging' : 'production', '--canonical-origin', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'],
     ['scripts/test-theme-navigation.mjs'],
     ['scripts/test-admin-builder.mjs'],
-  ].filter(args => !process.argv.includes('--admin-only') || args[0] === 'scripts/test-admin-builder.mjs')) {
+    ['scripts/test-pricing-browser.mjs'],
+  ].filter(args => (!process.argv.includes('--admin-only') || args[0] === 'scripts/test-admin-builder.mjs') && (!process.argv.includes('--pricing-only') || args[0] === 'scripts/test-pricing-browser.mjs'))) {
     const check = spawn(process.execPath, args, {cwd: root, stdio: 'inherit', env: {...process.env, AUTH_SECRET: secret, ACADEMY_TEST_BASE_URL: base}});
     children.push(check);
     const result = await new Promise((resolve, reject) => {check.once('error', reject); check.once('exit', code => resolve(code ?? 1));});

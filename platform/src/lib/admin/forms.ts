@@ -11,7 +11,7 @@ export const parentFields: Record<string, string> = {
   exams: 'courseId', questions: 'examId', options: 'questionId', blocks: 'pageId',
 };
 const defaults: AdminRow = {
-  minutes: 0, points: 1, perUserLimit: 1, languages: 'ar,en',
+  minutes: 0, points: 1, perUserLimit: 1, minimumOrderHalalas: 0, languages: 'ar,en',
   passingBasisPoints: 7000, notesEnabled: true, isActive: true,
 };
 const nullableStrings = new Set(['videoFileId', 'videoUrl', 'previewUrl', 'thumbnailUrl', 'imageUrl']);
@@ -87,5 +87,5 @@ export function serializeDraft(entity: string, draft: AdminDraft): AdminRow {
 
 export function recordTitle(row: AdminRow, arabic: boolean) {
   return String((arabic ? row.title_ar ?? row.prompt_ar ?? row.label_ar ?? row.name_ar : row.title_en ?? row.prompt_en ?? row.label_en ?? row.name_en)
-    || row.labelAr || row.labelEn || row.name || row.number || row.email || row.key || '');
+    || row.labelAr || row.labelEn || row.name || row.number || row.code || row.email || row.key || '');
 }

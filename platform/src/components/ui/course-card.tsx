@@ -2,7 +2,7 @@ import Image from "next/image";
 import { ArrowUpRight, BookOpen, Clock3 } from "lucide-react";
 import type { Course, Locale, Category, Instructor } from "@/content/catalog";
 import { Link } from "@/i18n/navigation";
-import { formatSAR } from "@/lib/money";
+import {CoursePrice} from '@/components/ui/price';
 import { AddToCartButton } from "@/components/cart/cart-controls";
 import { CourseCover } from "./course-cover";
 
@@ -82,17 +82,7 @@ export function CourseCard({
             </span>
           </div>
           <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-5">
-            <span>
-              <span className="block text-lg font-semibold">
-                {formatSAR(course.priceHalalas, locale)}
-              </span>
-              {course.compareAtHalalas &&
-              course.compareAtHalalas > course.priceHalalas ? (
-                <del className="text-xs text-muted">
-                  {formatSAR(course.compareAtHalalas, locale)}
-                </del>
-              ) : null}
-            </span>
+            <CoursePrice amount={course.priceHalalas} original={course.compareAtHalalas} locale={locale} className="text-lg" />
             <span className="flex items-center gap-1.5 text-xs font-medium text-accent">
               {labels.view}
               <ArrowUpRight

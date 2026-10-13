@@ -25,7 +25,7 @@ import {
 } from "@/lib/public-data";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
-import { formatSAR } from "@/lib/money";
+import {Price} from "@/components/ui/price";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -187,7 +187,7 @@ export default async function HomePage({ params }: Props) {
                   {common("lessonCount", { count: heroCourse.lessonCount })}
                 </span>
                 <span className="text-lg font-semibold">
-                  {formatSAR(heroCourse.priceHalalas, locale)}
+                  <Price amount={heroCourse.priceHalalas} locale={locale} />
                 </span>
               </div>
             </div>

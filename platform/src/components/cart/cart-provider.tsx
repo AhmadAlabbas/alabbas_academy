@@ -28,7 +28,7 @@ async function cartRequest(method: 'GET' | 'POST' | 'DELETE', body?: unknown): P
 export function CartProvider({ children,catalog }: { children: ReactNode;catalog:Course[] }) {
 const knownIds = useMemo(()=>new Set(catalog.map(course => course.id)),[catalog]);
 const guestCandidates = useMemo(()=>catalog.map(course => ({
-  item: { courseId: course.id, title: course.title, slug: course.slug, cover: course.cover, priceHalalas: course.priceHalalas },
+  item: { courseId: course.id, title: course.title, slug: course.slug, cover: course.cover, priceHalalas: course.priceHalalas, compareAtHalalas: course.compareAtHalalas },
   published: true, owned: false, currency: 'SAR',
 })),[catalog]);
 

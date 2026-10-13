@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { getDatabase } from "@/lib/db";
-import { calculateDiscount } from "./totals";
+import {checkoutCart, checkoutCoupon, CheckoutError} from "./checkout-quote";
 import { gatewayConfigured, MoyasarProvider } from "./providers";
 import {
   queueNotification,
@@ -17,117 +17,29 @@ export async function createOrder(
       await tx.$queryRaw`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
       if (user.status !== "ACTIVE" || !user.emailVerified)
-        throw new Error("VERIFICATION_REQUIRED");
+        throw new CheckoutError("VERIFICATION_REQUIRED", 403);
       const existing = await tx.order.findUnique({
         where: { checkoutKey: input.key },
         include: { items: true },
       });
       if (existing) {
-        if (existing.userId !== userId) throw new Error("ORDER_CONFLICT");
+        if (existing.userId !== userId) throw new CheckoutError("ORDER_CONFLICT", 409);
         return existing;
       }
-      const cart = await tx.cart.findUnique({
-        where: { userId },
-        include: {
-          items: {
-            include: {
-              course: {
-                include: {
-                  enrollments: {
-                    where: { userId, status: { in: ["ACTIVE", "COMPLETED"] } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-      if (!cart?.items.length || cart.items.length > 20)
-        throw new Error("EMPTY_CART");
-      if (
-        cart.items.some(
-          (x) =>
-            x.course.status !== "PUBLISHED" ||
-            x.course.currency !== "SAR" ||
-            x.course.enrollments.length,
-        )
-      )
-        throw new Error("COURSE_UNAVAILABLE");
-      const subtotal = cart.items.reduce(
-        (n, x) => n + x.course.priceHalalas,
-        0,
-      );
-      let coupon = input.coupon
-        ? await tx.coupon.findUnique({ where: { code: input.coupon } })
-        : null;
-      const now = new Date();
-      if (input.coupon && !coupon) throw new Error("INVALID_COUPON");
-      if (coupon) {
-        await tx.$queryRaw`SELECT id FROM coupons WHERE id=${coupon.id} FOR UPDATE`;
-        coupon = await tx.coupon.findUniqueOrThrow({
-          where: { id: coupon.id },
-        });
-        if (
-          !coupon.isActive ||
-          (coupon.startsAt && coupon.startsAt > now) ||
-          (coupon.expiresAt && coupon.expiresAt <= now)
-        )
-          throw new Error("INVALID_COUPON");
-        const scope = await tx.couponCourse.findMany({
-          where: { couponId: coupon.id },
-        });
-        if (
-          scope.length &&
-          cart.items.some(
-            (item) => !scope.some((x) => x.courseId === item.courseId),
-          )
-        )
-          throw new Error("INVALID_COUPON");
-        await tx.couponReservation.updateMany({
-          where: {
-            couponId: coupon.id,
-            status: "RESERVED",
-            expiresAt: { lte: now },
-          },
-          data: { status: "EXPIRED" },
-        });
-        const [all, own] = await Promise.all([
-          tx.couponReservation.count({
-            where: {
-              couponId: coupon.id,
-              status: { in: ["RESERVED", "REDEEMED"] },
-            },
-          }),
-          tx.couponReservation.count({
-            where: {
-              couponId: coupon.id,
-              userId,
-              status: { in: ["RESERVED", "REDEEMED"] },
-            },
-          }),
-        ]);
-        if (
-          (coupon.usageLimit !== null && all >= coupon.usageLimit) ||
-          own >= coupon.perUserLimit
-        )
-          throw new Error("COUPON_LIMIT");
-      }
-      const discount = calculateDiscount(subtotal, coupon),
-        settings = await tx.setting.findUnique({
+      const {cart, subtotal} = await checkoutCart(tx, userId);
+      const {coupon, discount} = await checkoutCoupon(tx, userId, input.coupon, cart.items.map(item => item.courseId), subtotal, true);
+      const settings = await tx.setting.findUnique({
           where: { key: "payments_enabled" },
         });
       const provider =
-        gatewayConfigured() && settings?.value !== false ? "moyasar" : "manual";
+        gatewayConfigured() && settings?.value !== false && subtotal > discount ? "moyasar" : "manual";
       const expires = new Date(Date.now() + 86400000);
-      let left = discount;
-      const items = cart.items.map((item, index) => {
-        const d =
-          index === cart.items.length - 1
-            ? left
-            : Math.floor(
-                (discount * item.course.priceHalalas) / Math.max(1, subtotal),
-              );
-        left -= d;
+      let cumulativePrice = 0, allocatedDiscount = 0;
+      const items = cart.items.map((item) => {
+        cumulativePrice += item.course.priceHalalas;
+        const cumulativeDiscount = Number(BigInt(discount) * BigInt(cumulativePrice) / BigInt(Math.max(1, subtotal)));
+        const d = cumulativeDiscount - allocatedDiscount;
+        allocatedDiscount = cumulativeDiscount;
         return {
           courseId: item.courseId,
           titleAr: item.course.title_ar,
@@ -182,7 +94,9 @@ export async function createOrder(
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       return order;
     },
-    { timeout: 15000 },
+    // Coupon limits must see the previous customer's committed reservation
+    // after acquiring the coupon lock, rather than an earlier snapshot.
+    { timeout: 15000, isolationLevel: 'ReadCommitted' },
   );
 }
 async function fulfill(
