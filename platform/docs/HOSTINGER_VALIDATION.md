@@ -1,5 +1,11 @@
 # Hostinger release validation — 11 October 2026
 
+## Confirmed test-course cleanup — 13 October 2026
+
+After the user identified the blocking enrollment as a test student, archived courses gained a separate **Delete test course** action. A private administrator-only preview names the course and counts enrollments, reviews, progress/notes, exam attempts and certificates. Its checkbox explicitly confirms all affected learning records are test data. The server rechecks the preview and refuses changed inventories, non-archived courses, linked order items/purchase enrollments and coupon links. Cleanup and its audit are transactional, scoped to the selected course, and preserve student accounts, other courses and shared media. Normal Delete keeps its existing history protections.
+
+Local validation: build/type checking and lint passed; **241 unit tests** passed (46 database cases skipped by that command), **46 database tests** passed separately, all three Hostinger startup modes passed, and **11 administrator/learner browser groups** passed. Tests include cancellation, stale-preview rejection, course-specific cleanup after real lesson/exam/PDF completion, account preservation, purchase/coupon refusal and rollback when another course references an exam. The 320px dark-theme cleanup dialog was visually inspected. No customer database was used by these tests and no schema or environment-variable change is needed.
+
 ## Course deletion correction — 13 October 2026
 
 The administrator Delete button previously reported related data for every failed request, including network and authentication failures. It now distinguishes those failures and reports actual enrollment, order-item, review and coupon-link counts when a course is in use. Those records remain intact. Unused courses are deleted transactionally with their curriculum; section-linked exams are removed before section cascades, avoiding their restrictive foreign-key ordering. The deletion audit commits with the deletion. Shared uploaded media is retained.

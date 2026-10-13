@@ -5,7 +5,8 @@ vi.mock('@/lib/auth/session', () => ({requireVerifiedUser: vi.fn()}));
 import {getDatabase} from '@/lib/db';
 import {mutateAdmin, listAdmin, adminLookups} from '@/lib/admin/service';
 import {initialDraft, serializeDraft, type AdminRow} from '@/lib/admin/forms';
-import {CourseDeletionBlocked} from '@/lib/admin/deletion';
+import {CourseDeletionBlocked, CourseDeletionChanged, CourseCleanupUnavailable} from '@/lib/admin/deletion';
+import {courseDeletionPreview} from '@/lib/admin/course-deletion';
 
 const configured = process.env.ACADEMY_TEST_DATABASE_URL;
 describe.skipIf(!configured)('Admin course content editing', () => {
@@ -183,6 +184,11 @@ describe.skipIf(!configured)('Admin course content editing', () => {
         catch (error) {expect(error).toBeInstanceOf(CourseDeletionBlocked); expect((error as CourseDeletionBlocked).blockers).toEqual(counts);}
         expect(await db.exam.findUnique({where: {id: exam.id}})).not.toBeNull();
         expect(await db.course.findUnique({where: {id: course.id}})).not.toBeNull();
+        if (counts.orderItems) {
+          const preview = await courseDeletionPreview(course.id);
+          expect(preview.canDeleteTestData).toBe(false);
+          await expect(mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: preview.previewToken})).rejects.toBeInstanceOf(CourseCleanupUnavailable);
+        }
       }
       expect(await db.auditLog.count({where: {actorId, entityId: course.id, action: 'DELETE'}})).toBe(0);
     } finally {
@@ -191,6 +197,88 @@ describe.skipIf(!configured)('Admin course content editing', () => {
       await db.order.delete({where: {id: order.id}});
       await db.review.deleteMany({where: {courseId: course.id}});
       await db.coupon.delete({where: {id: coupon.id}});
+      await db.exam.deleteMany({where: {courseId: course.id}});
+      await db.course.delete({where: {id: course.id}});
+    }
+  });
+  it('previews and deletes test learning records while retaining the account and other course records', async () => {
+    const db = getDatabase(), unique = randomUUID();
+    const course = await db.course.create({data: {key: unique, slug_ar: 'تجربة-' + unique, slug_en: 'test-' + unique, categoryId, priceHalalas: 0, status: 'ARCHIVED'}});
+    const other = await db.enrollment.create({data: {courseId: secondCourseId, userId: actorId, source: 'admin'}});
+    try {
+      const section = await db.section.create({data: {courseId: course.id, position: 0}});
+      const lesson = await db.lesson.create({data: {sectionId: section.id, position: 0, kind: 'VIDEO'}});
+      const exam = await db.exam.create({data: {courseId: course.id, sectionId: section.id, position: 0}});
+      const enrollment = await db.enrollment.create({data: {courseId: course.id, userId: actorId, source: 'admin'}});
+      await db.lessonProgress.create({data: {enrollmentId: enrollment.id, lessonId: lesson.id, note: 'Private test notes'}});
+      await db.examAttempt.create({data: {enrollmentId: enrollment.id, examId: exam.id, number: 1, examVersion: 1, locale: 'en', questionSnapshot: [], maximumPoints: 1}});
+      await db.certificate.create({data: {enrollmentId: enrollment.id, serial: unique, verificationHash: unique.replaceAll('-', '').padEnd(64, '0'), learnerName: 'Test student', courseTitleAr: 'اختبار', courseTitleEn: 'Test'}});
+      await db.review.create({data: {courseId: course.id, userId: actorId, rating: 5, body: 'Test review', locale: 'en'}});
+      const preview = await courseDeletionPreview(course.id);
+      expect(preview).toMatchObject({canDeleteTestData: true, blockers: {enrollments: 1, reviews: 1}, learning: {progress: 1, attempts: 1, certificates: 1}});
+      await mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: preview.previewToken});
+      expect(await db.user.findUnique({where: {id: actorId}})).not.toBeNull();
+      expect(await db.enrollment.findUnique({where: {id: other.id}})).not.toBeNull();
+      expect(await db.course.findUnique({where: {id: course.id}})).toBeNull();
+      expect(await db.enrollment.findUnique({where: {id: enrollment.id}})).toBeNull();
+      expect(await db.lessonProgress.count({where: {enrollmentId: enrollment.id}})).toBe(0);
+      expect(await db.examAttempt.count({where: {enrollmentId: enrollment.id}})).toBe(0);
+      expect(await db.certificate.count({where: {enrollmentId: enrollment.id}})).toBe(0);
+      expect(await db.review.count({where: {courseId: course.id}})).toBe(0);
+      const audit = await db.auditLog.findFirstOrThrow({where: {actorId, entityId: course.id, action: 'DELETE'}});
+      expect(audit.changes).toMatchObject({testDataConfirmed: true, removed: {enrollments: 1, reviews: 1, certificates: 1}});
+    } finally {
+      await db.certificate.deleteMany({where: {enrollment: {courseId: course.id}}});
+      await db.examAttempt.deleteMany({where: {enrollment: {courseId: course.id}}});
+      await db.enrollment.deleteMany({where: {courseId: course.id}});
+      await db.enrollment.delete({where: {id: other.id}});
+      await db.review.deleteMany({where: {courseId: course.id}});
+      await db.exam.deleteMany({where: {courseId: course.id}});
+      await db.course.deleteMany({where: {id: course.id}});
+    }
+  });
+  it('rejects stale previews, published-course cleanup and coupon-linked cleanup without deleting any records', async () => {
+    const db = getDatabase(), unique = randomUUID();
+    const course = await db.course.create({data: {key: unique, slug_ar: 'تأكيد-' + unique, slug_en: 'confirm-' + unique, categoryId, priceHalalas: 0, status: 'PUBLISHED'}});
+    const coupon = await db.coupon.create({data: {code: unique, kind: 'PERCENTAGE', percentageBasisPoints: 1000}});
+    try {
+      const published = await courseDeletionPreview(course.id);
+      expect(published.reason).toBe('ARCHIVE_FIRST');
+      await expect(mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: published.previewToken})).rejects.toBeInstanceOf(CourseCleanupUnavailable);
+      await db.course.update({where: {id: course.id}, data: {status: 'ARCHIVED'}});
+      const stale = await courseDeletionPreview(course.id);
+      await db.review.create({data: {courseId: course.id, userId: actorId, rating: 5, body: 'New test record', locale: 'en'}});
+      await expect(mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: stale.previewToken})).rejects.toBeInstanceOf(CourseDeletionChanged);
+      await db.couponCourse.create({data: {courseId: course.id, couponId: coupon.id}});
+      const linked = await courseDeletionPreview(course.id);
+      expect(linked.reason).toBe('COUPON_LINKS');
+      await expect(mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: linked.previewToken})).rejects.toBeInstanceOf(CourseCleanupUnavailable);
+      expect(await db.review.count({where: {courseId: course.id}})).toBe(1);
+      expect(await db.course.findUnique({where: {id: course.id}})).not.toBeNull();
+      await expect(mutateAdmin('sections', sectionId, {}, actorId, true, {confirmedTestData: true, previewToken: linked.previewToken})).rejects.toThrow('INVALID_INPUT');
+    } finally {await db.review.deleteMany({where: {courseId: course.id}}); await db.coupon.delete({where: {id: coupon.id}}); await db.course.delete({where: {id: course.id}});}
+  });
+  it('rolls back all test cleanup if another course still references an exam', async () => {
+    const db = getDatabase(), unique = randomUUID();
+    const course = await db.course.create({data: {key: unique, slug_ar: 'تراجع-' + unique, slug_en: 'rollback-' + unique, categoryId, priceHalalas: 0, status: 'ARCHIVED'}});
+    const enrollment = await db.enrollment.create({data: {courseId: course.id, userId: actorId, source: 'admin'}});
+    const other = await db.enrollment.create({data: {courseId: secondCourseId, userId: actorId, source: 'admin'}});
+    try {
+      const exam = await db.exam.create({data: {courseId: course.id, position: 0}});
+      await db.examAttempt.create({data: {enrollmentId: other.id, examId: exam.id, number: 1, examVersion: 1, locale: 'en', questionSnapshot: [], maximumPoints: 1}});
+      const certificate = await db.certificate.create({data: {enrollmentId: enrollment.id, serial: unique, verificationHash: unique.replaceAll('-', '').padEnd(64, '1'), learnerName: 'Test', courseTitleAr: 'اختبار', courseTitleEn: 'Test'}});
+      await db.review.create({data: {courseId: course.id, userId: actorId, rating: 5, body: 'Test', locale: 'en'}});
+      const preview = await courseDeletionPreview(course.id);
+      await expect(mutateAdmin('courses', course.id, {}, actorId, true, {confirmedTestData: true, previewToken: preview.previewToken})).rejects.toMatchObject({code: 'P2003'});
+      expect(await db.enrollment.findUnique({where: {id: enrollment.id}})).not.toBeNull();
+      expect(await db.certificate.findUnique({where: {id: certificate.id}})).not.toBeNull();
+      expect(await db.review.count({where: {courseId: course.id}})).toBe(1);
+      expect(await db.auditLog.count({where: {entityId: course.id, action: 'DELETE'}})).toBe(0);
+    } finally {
+      await db.examAttempt.deleteMany({where: {exam: {courseId: course.id}}});
+      await db.certificate.deleteMany({where: {enrollmentId: enrollment.id}});
+      await db.enrollment.deleteMany({where: {id: {in: [enrollment.id, other.id]}}});
+      await db.review.deleteMany({where: {courseId: course.id}});
       await db.exam.deleteMany({where: {courseId: course.id}});
       await db.course.delete({where: {id: course.id}});
     }
