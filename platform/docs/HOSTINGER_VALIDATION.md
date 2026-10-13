@@ -1,5 +1,11 @@
 # Hostinger release validation — 11 October 2026
 
+## Course deletion correction — 13 October 2026
+
+The administrator Delete button previously reported related data for every failed request, including network and authentication failures. It now distinguishes those failures and reports actual enrollment, order-item, review and coupon-link counts when a course is in use. Those records remain intact. Unused courses are deleted transactionally with their curriculum; section-linked exams are removed before section cascades, avoiding their restrictive foreign-key ordering. The deletion audit commits with the deletion. Shared uploaded media is retained.
+
+The fix is based on the current production source, independently of the separate staging improvement batch. Build/type checking, lint, 241 unit tests, 43 isolated database tests and all three Hostinger startup modes passed locally. Database tests exercise section-linked exam cleanup and preservation of linked course history. Production browser checks also exercise successful deletion, enrollment-blocked deletion and connection-failure recovery. No schema migration, customer database mutation or new hosting variable is required.
+
 The source release targets branch `platform`, application root `platform`, Node 22.18+ (validated on Node 24.19), and MySQL 8 / MariaDB 10.6+. At the initial release, hosting configuration remained an external prerequisite. Subsequent checkpoints below record the user's Hostinger setup and the public checks performed from this environment. Private hosting settings cannot be managed here without a deployment connection.
 
 ## Requirement checklist

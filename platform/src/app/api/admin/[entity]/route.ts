@@ -1,5 +1,6 @@
 import {CourseNotReady} from '@/lib/admin/readiness';
 import { z } from "zod";
+import {CourseDeletionBlocked} from '@/lib/admin/deletion';
 import { requireAdmin, listAdmin, mutateAdmin, adminLookups } from "@/lib/admin/service";
 import {
   accountErrorResponse,
@@ -14,6 +15,7 @@ const input = z
   .strict();
 function adminError(error: unknown) {
   if (error instanceof CourseNotReady) return Response.json({ok: false, code: 'COURSE_NOT_READY', checks: error.checks}, {status: 400});
+  if (error instanceof CourseDeletionBlocked) return Response.json({ok: false, code: 'COURSE_IN_USE', blockers: error.blockers}, {status: 409, headers: {'Cache-Control': 'private, no-store'}});
   if (error instanceof z.ZodError) return Response.json({ok: false, code: 'INVALID_INPUT', fieldErrors: z.flattenError(error).fieldErrors}, {status: 400});
   if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') return Response.json({ok: false, code: 'DUPLICATE_VALUE'}, {status: 409});
   if (error && typeof error === 'object' && 'code' in error && error.code === 'P2003') return Response.json({ok: false, code: 'INVALID_RELATION'}, {status: 400});

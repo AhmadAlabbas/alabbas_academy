@@ -5,6 +5,7 @@ vi.mock('@/lib/auth/session', () => ({requireVerifiedUser: vi.fn()}));
 import {getDatabase} from '@/lib/db';
 import {mutateAdmin, listAdmin, adminLookups} from '@/lib/admin/service';
 import {initialDraft, serializeDraft, type AdminRow} from '@/lib/admin/forms';
+import {CourseDeletionBlocked} from '@/lib/admin/deletion';
 
 const configured = process.env.ACADEMY_TEST_DATABASE_URL;
 describe.skipIf(!configured)('Admin course content editing', () => {
@@ -147,4 +148,51 @@ describe.skipIf(!configured)('Admin course content editing', () => {
     expect((await db.course.findUniqueOrThrow({where: {id}})).languages).toBe('ar');
   });
 
+  it('deletes an unused course with section exams and audits the deletion atomically', async () => {
+    const db = getDatabase(), unique = randomUUID();
+    const course = await db.course.create({data: {key: unique, slug_ar: 'حذف-' + unique, slug_en: 'delete-' + unique, categoryId, priceHalalas: 0}});
+    try {
+      const section = await db.section.create({data: {courseId: course.id, position: 0}});
+      const lesson = await db.lesson.create({data: {sectionId: section.id, position: 0, kind: 'ARTICLE'}});
+      const exam = await db.exam.create({data: {courseId: course.id, sectionId: section.id, position: 0, passingBasisPoints: 7000}});
+      await mutateAdmin('courses', course.id, {}, actorId, true);
+      expect(await db.course.findUnique({where: {id: course.id}})).toBeNull();
+      expect(await db.lesson.findUnique({where: {id: lesson.id}})).toBeNull();
+      expect(await db.exam.findUnique({where: {id: exam.id}})).toBeNull();
+      expect(await db.auditLog.count({where: {actorId, entityId: course.id, action: 'DELETE'}})).toBe(1);
+    } finally {await db.exam.deleteMany({where: {courseId: course.id}}); await db.course.deleteMany({where: {id: course.id}});}
+  });
+  it('explains every course deletion blocker and keeps curriculum and history intact', async () => {
+    const db = getDatabase(), unique = randomUUID();
+    const course = await db.course.create({data: {key: unique, slug_ar: 'محفوظ-' + unique, slug_en: 'retained-' + unique, categoryId, priceHalalas: 0, status: 'ARCHIVED'}});
+    const section = await db.section.create({data: {courseId: course.id, position: 0}});
+    const exam = await db.exam.create({data: {courseId: course.id, sectionId: section.id, position: 0, passingBasisPoints: 7000}});
+    const order = await db.order.create({data: {number: unique, userId: actorId, subtotalHalalas: 0, totalHalalas: 0, buyerEmail: 'builder@example.test', buyerName: 'Builder', locale: 'en', checkoutKey: unique}});
+    const coupon = await db.coupon.create({data: {code: unique, kind: 'PERCENTAGE', percentageBasisPoints: 1000}});
+    try {
+      const relations = [
+        ['enrollments', () => db.enrollment.create({data: {courseId: course.id, userId: actorId}})],
+        ['orderItems', () => db.orderItem.create({data: {courseId: course.id, orderId: order.id, titleAr: 'عنوان', titleEn: 'Title', unitPriceHalalas: 0, totalHalalas: 0}})],
+        ['reviews', () => db.review.create({data: {courseId: course.id, userId: actorId, rating: 5, body: 'Review', locale: 'en'}})],
+        ['couponCourses', () => db.couponCourse.create({data: {courseId: course.id, couponId: coupon.id}})],
+      ] as const;
+      const counts = {enrollments: 0, orderItems: 0, reviews: 0, couponCourses: 0};
+      for (const [key, add] of relations) {
+        await add(); counts[key] = 1;
+        try {await mutateAdmin('courses', course.id, {}, actorId, true); expect.fail('Linked course must not be deleted');}
+        catch (error) {expect(error).toBeInstanceOf(CourseDeletionBlocked); expect((error as CourseDeletionBlocked).blockers).toEqual(counts);}
+        expect(await db.exam.findUnique({where: {id: exam.id}})).not.toBeNull();
+        expect(await db.course.findUnique({where: {id: course.id}})).not.toBeNull();
+      }
+      expect(await db.auditLog.count({where: {actorId, entityId: course.id, action: 'DELETE'}})).toBe(0);
+    } finally {
+      await db.enrollment.deleteMany({where: {courseId: course.id}});
+      await db.orderItem.deleteMany({where: {orderId: order.id}});
+      await db.order.delete({where: {id: order.id}});
+      await db.review.deleteMany({where: {courseId: course.id}});
+      await db.coupon.delete({where: {id: coupon.id}});
+      await db.exam.deleteMany({where: {courseId: course.id}});
+      await db.course.delete({where: {id: course.id}});
+    }
+  });
 });

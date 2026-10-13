@@ -9,6 +9,7 @@ import { socialLink, socialPlatforms } from "@/lib/social";
 import {parentFields} from './forms';
 import {courseReadiness, CourseNotReady, type ReadinessCourse} from './readiness';
 import {courseEntities, missingContentFields, contentText, contentLocale} from '@/lib/course-content';
+import {CourseDeletionBlocked} from './deletion';
 export async function requireAdmin() {
   const user = await requireVerifiedUser();
   if (!user.roles.includes("administrator"))
@@ -179,6 +180,21 @@ export async function mutateAdmin(
   if (config.readonly) throw new AccountError("FORBIDDEN", 403);
   const identity = config.identity || "id";
   if (remove && !id) throw new AccountError("INVALID_INPUT", 400);
+  if (remove && entity === 'courses') {
+    const row = await getDatabase().$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM courses WHERE id = ${id} FOR UPDATE`;
+      const course = await tx.course.findUniqueOrThrow({where: {id: id!}, select: {_count: {select: {enrollments: true, orderItems: true, reviews: true, couponCourses: true}}}});
+      if (Object.values(course._count).some(count => count > 0)) throw new CourseDeletionBlocked(course._count);
+      // Section exams reference sections with RESTRICT. Remove unused exams
+      // first so their curriculum can cascade; the transaction rolls back if
+      // any other record still requires the course or its content.
+      await tx.exam.deleteMany({where: {courseId: id!}});
+      const deleted = await tx.course.delete({where: {id: id!}});
+      await tx.auditLog.create({data: {actorId, action: 'DELETE', entityType: entity, entityId: id!, changes: {fields: []}}});
+      return deleted;
+    });
+    return serialize(row);
+  }
   const parsed = remove ? {} : entitySchema(entity, Boolean(id)).parse(data);
   if (!remove && courseEntities.has(entity)) {
     const existing = id ? (await db.findMany({where: {[identity]: id}, take: 1}))[0] || {} : {};

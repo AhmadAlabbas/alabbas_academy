@@ -1,4 +1,5 @@
 "use client";
+import {deletionErrorMessage} from '@/lib/admin/deletion';
 import { useState } from "react";
 import { useLocale } from "next-intl";
 import {
@@ -233,6 +234,7 @@ export function AdminPanel({
                         {!["reviews", "contacts"].includes(entity) && (
                           <button
                             className="button-secondary"
+                            disabled={busy}
                             onClick={async () => {
                               if (
                                 !window.confirm(
@@ -243,6 +245,8 @@ export function AdminPanel({
                                 )
                               )
                                 return;
+                              setBusy(true);
+                              try {
                               const r = await fetch(`/api/admin/${entity}`, {
                                 method: "DELETE",
                                 headers: { "Content-Type": "application/json" },
@@ -253,12 +257,12 @@ export function AdminPanel({
                               setMessage(
                                 r.ok
                                   ? label("تم الحذف", "Deleted")
-                                  : label(
-                                      "السجل مرتبط ببيانات أخرى، استخدم الأرشفة",
-                                      "Record has related data; archive it instead",
-                                    ),
+                                  : deletionErrorMessage(await r.json().catch(() => ({})), ar),
                               );
                               if (r.ok) await reload();
+                              } catch {
+                                setMessage(label('تعذر الاتصال. حاول الحذف مجددًا.', 'Unable to connect. Try deleting again.'));
+                              } finally {setBusy(false);}
                             }}
                           >
                             {label("حذف", "Delete")}
