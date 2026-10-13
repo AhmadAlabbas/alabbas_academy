@@ -26,6 +26,7 @@ const title = 'Browser course ' + randomUUID().slice(0, 8);
 const checks = [];
 const errors = [];
 let courseId;
+let unusedCourseId;
 let page;
 const route = pathname => new URL(pathname, base).href;
 async function save(entity) {
@@ -207,6 +208,34 @@ try {
   await page.goto(route('/en/admin/users?q=' + encodeURIComponent(`builder-${userId}@example.test`)));
   await actionDialog(page.getByRole('button', {name: 'Free enrollment', exact: true}), title);
   checks.push('Enroll a verified learner using a named course picker');
+  await page.goto(route('/en/admin/courses?q=' + encodeURIComponent(title)));
+  const linkedRow = page.getByRole('row').filter({hasText: title});
+  page.once('dialog', dialog => dialog.accept());
+  const blockedDelete = page.waitForResponse(response => response.url() === route('/api/admin/courses') && response.request().method() === 'DELETE');
+  await linkedRow.getByRole('button', {name: 'Delete', exact: true}).click();
+  assert.equal((await blockedDelete).status(), 409);
+  await page.getByText('Cannot delete this course: 1 student enrollments. Archive it to hide it from the public catalog.', {exact: true}).waitFor();
+  assert.equal(await linkedRow.count(), 1);
+  await page.route('**/api/admin/courses', async handler => handler.request().method() === 'DELETE' ? handler.abort() : handler.continue());
+  page.once('dialog', dialog => dialog.accept());
+  await linkedRow.getByRole('button', {name: 'Delete', exact: true}).click();
+  await page.getByText('Unable to connect. Try deleting again.', {exact: true}).waitFor();
+  await page.unroute('**/api/admin/courses');
+  assert.equal(await linkedRow.getByRole('button', {name: 'Delete', exact: true}).isEnabled(), true);
+  unusedCourseId = randomUUID();
+  const unusedTitle = 'Unused ' + unusedCourseId;
+  await db.query('INSERT INTO courses (id, `key`, categoryId, slug_ar, slug_en, title_ar, title_en, priceHalalas, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())', [unusedCourseId, unusedCourseId, course.categoryId, 'حذف-' + unusedCourseId, 'delete-' + unusedCourseId, 'دورة غير مستخدمة', unusedTitle]);
+  await page.getByLabel('Search', {exact: true}).fill(unusedTitle);
+  await page.getByRole('button', {name: 'Apply', exact: true}).click();
+  const unusedRow = page.getByRole('row').filter({hasText: unusedTitle});
+  page.once('dialog', dialog => dialog.accept());
+  const deletedResponse = page.waitForResponse(response => response.url() === route('/api/admin/courses') && response.request().method() === 'DELETE');
+  await unusedRow.getByRole('button', {name: 'Delete', exact: true}).click();
+  assert.equal((await deletedResponse).status(), 200);
+  await unusedRow.waitFor({state: 'detached'});
+  await page.getByText('Deleted', {exact: true}).waitFor();
+  assert.equal((await db.query('SELECT id FROM courses WHERE id=?', [unusedCourseId])).length, 0);
+  checks.push('Delete unused courses, explain enrollment blockers and recover from a failed delete connection');
 
   // Verify small-screen editors, dialogs and the Arabic course workspace.
   for (const locale of ['en', 'ar']) {
@@ -264,6 +293,7 @@ try {
   await db.query('DELETE a FROM exam_attempts a JOIN enrollments e ON a.enrollmentId=e.id WHERE e.userId=?', [userId]);
   await db.query('DELETE FROM enrollments WHERE userId=?', [userId]);
   if (courseId) await db.query('DELETE FROM courses WHERE id=?', [courseId]);
+  if (unusedCourseId) await db.query('DELETE FROM courses WHERE id=?', [unusedCourseId]);
   await db.query('DELETE FROM media_assets WHERE uploadedById=?', [userId]);
   await db.query('DELETE FROM audit_logs WHERE actorId=?', [userId]);
   await db.query('DELETE FROM sessions WHERE userId=?', [userId]);
