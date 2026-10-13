@@ -12,7 +12,7 @@ export const parentFields: Record<string, string> = {
   exams: 'courseId', questions: 'examId', options: 'questionId', blocks: 'pageId',
 };
 const defaults: AdminRow = {
-  minutes: 0, points: 1, perUserLimit: 1, languages: 'ar',
+  minutes: 0, points: 1, perUserLimit: 1, minimumOrderHalalas: 0, languages: 'ar',
   passingBasisPoints: 7000, notesEnabled: true, isActive: true,
 };
 const nullableStrings = new Set(['videoFileId', 'videoUrl', 'previewUrl', 'thumbnailUrl', 'imageUrl']);
@@ -92,5 +92,5 @@ export function recordTitle(row: AdminRow, arabic: boolean) {
   const preferred = row.languages ? contentLocale(String(row.languages), arabic ? 'ar' : 'en') : arabic ? 'ar' : 'en', other = preferred === 'ar' ? 'en' : 'ar';
   return String(row['title_' + preferred] || row['prompt_' + preferred] || row['label_' + preferred] || row['name_' + preferred]
     || row['title_' + other] || row['prompt_' + other] || row['label_' + other] || row['name_' + other]
-    || row[preferred === 'ar' ? 'labelAr' : 'labelEn'] || row.labelAr || row.labelEn || row.name || row.number || row.email || row.key || '');
+    || row[preferred === 'ar' ? 'labelAr' : 'labelEn'] || row.labelAr || row.labelEn || row.name || row.number || row.code || row.email || row.key || '');
 }

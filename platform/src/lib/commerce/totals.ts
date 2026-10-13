@@ -1,8 +1,10 @@
 import { z } from "zod";
+export const couponSchema = z.string().trim().toUpperCase().max(40);
+export const quoteSchema = z.object({coupon: couponSchema.optional()}).strict();
 export const checkoutSchema = z
   .object({
     locale: z.enum(["ar", "en"]),
-    coupon: z.string().trim().toUpperCase().max(40).optional(),
+    coupon: couponSchema.optional(),
     key: z.uuid(),
   })
   .strict();

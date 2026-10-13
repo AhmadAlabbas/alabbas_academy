@@ -28,7 +28,7 @@ export async function updateAccountCart(userId: string, operation: CartOperation
     const courses = keys.length ? await tx.course.findMany({
       where: { key: { in: keys } },
       select: {
-        id: true, key: true, status: true, currency: true, priceHalalas: true, coverStyle: true,
+        id: true, key: true, status: true, currency: true, priceHalalas: true, compareAtHalalas: true, coverStyle: true,
         title_ar:true,title_en:true,slug_ar:true,slug_en:true,languages:true,
         enrollments: { where: { userId, status: { in: ['ACTIVE', 'COMPLETED'] } }, select: { id: true } },
       },
@@ -41,6 +41,7 @@ export async function updateAccountCart(userId: string, operation: CartOperation
           slug: { ar: courseLanguages(course.languages).includes('ar') ? course.slug_ar : '', en: courseLanguages(course.languages).includes('en') ? course.slug_en : '' },
           cover: (covers.has(course.coverStyle) ? course.coverStyle : 'design') as CartItem['cover'],
           priceHalalas: course.priceHalalas,
+          compareAtHalalas: course.compareAtHalalas,
         },
       };
     });
@@ -53,5 +54,5 @@ export async function updateAccountCart(userId: string, operation: CartOperation
     });
     // Use DB facts for all prices and labels. Never accept user IDs or totals from clients.
     return result;
-  }, { maxWait: 10_000, timeout: 15_000 });
+  }, { maxWait: 10_000, timeout: 15_000, isolationLevel: 'ReadCommitted' });
 }

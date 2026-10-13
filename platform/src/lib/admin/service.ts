@@ -10,6 +10,7 @@ import {parentFields} from './forms';
 import {courseReadiness, CourseNotReady, type ReadinessCourse} from './readiness';
 import {courseEntities, missingContentFields, contentText, contentLocale} from '@/lib/course-content';
 import {deleteCourse} from './course-deletion';
+import {validateAdminPricing} from '@/lib/commerce/admin-pricing';
 export async function requireAdmin() {
   const user = await requireVerifiedUser();
   if (!user.roles.includes("administrator"))
@@ -141,6 +142,7 @@ export function entitySchema(entity: string, partial = false) {
         .min(1)
         .max(128)
         .regex(/^[\p{L}\p{N}]+(?:[-_][\p{L}\p{N}]+)*$/u).or(z.literal(""));
+    if (entity === 'coupons' && field.key === 'code') value = z.string().trim().toUpperCase().min(1).max(40).regex(/^[\p{L}\p{N}_-]+$/u);
     if (["videoUrl", "previewUrl"].includes(field.key))
       value = z
         .string()
@@ -186,6 +188,16 @@ export async function mutateAdmin(
     return serialize(await deleteCourse(id!, actorId, testData));
   }
   const parsed = remove ? {} : entitySchema(entity, Boolean(id)).parse(data);
+  if (!remove && ['courses', 'coupons'].includes(entity)) {
+    const existing = id ? await db.findMany({where: {[identity]: id}, take: 1}) : [];
+    if (entity === 'coupons') {
+      if (parsed.minimumOrderHalalas === null || (!id && parsed.minimumOrderHalalas === undefined)) parsed.minimumOrderHalalas = 0;
+      const kind = parsed.kind || existing[0]?.kind;
+      if (kind === 'PERCENTAGE') parsed.amountHalalas = null;
+      if (kind === 'FIXED_AMOUNT') {parsed.percentageBasisPoints = null; parsed.maximumDiscountHalalas = null;}
+    }
+    validateAdminPricing(entity, {...existing[0], ...parsed});
+  }
   if (!remove && courseEntities.has(entity)) {
     const existing = id ? (await db.findMany({where: {[identity]: id}, take: 1}))[0] || {} : {};
     const merged = {...existing, ...parsed};

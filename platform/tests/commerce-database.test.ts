@@ -12,6 +12,7 @@ import {
 import { MoyasarProvider } from "@/lib/commerce/providers";
 import { mutateLearning, enrollmentFor } from "@/lib/learning/service";
 import { calculateDiscount } from "@/lib/commerce/totals";
+import {quoteCheckout, checkoutCoupon} from '@/lib/commerce/checkout-quote';
 const configured = process.env.ACADEMY_TEST_DATABASE_URL;
 describe.skipIf(!configured)("MySQL checkout and learning invariants", () => {
   let userId: string,
@@ -118,6 +119,61 @@ describe.skipIf(!configured)("MySQL checkout and learning invariants", () => {
         .priceHalalas,
     ).toBe(19900);
   });
+  it('previews discounts with current database prices without creating orders or consuming coupon uses', async () => {
+    const db = getDatabase();
+    const before = await db.order.count({where: {userId}});
+    const previews = await Promise.all(Array.from({length: 3}, () => quoteCheckout(userId, {coupon: ' test10 '})));
+    expect(previews.every(quote => quote.totalHalalas === 17910)).toBe(true);
+    expect(await db.order.count({where: {userId}})).toBe(before);
+    expect(await db.couponReservation.count({where: {coupon: {code: 'TEST10'}}})).toBe(0);
+    await db.course.update({where: {id: courseId}, data: {priceHalalas: 19857}});
+    expect(await quoteCheckout(userId, {coupon: 'TEST10'})).toMatchObject({subtotalHalalas: 19857, discountHalalas: 1985, totalHalalas: 17872});
+    await db.course.update({where: {id: courseId}, data: {priceHalalas: 19900}});
+  });
+  it('distinguishes invalid, expired, future, minimum and course-scope coupon failures', async () => {
+    const db = getDatabase();
+    await expect(quoteCheckout(userId, {coupon: 'NO_SUCH_CODE'})).rejects.toMatchObject({code: 'INVALID_COUPON'});
+    for (const [code, extra, expected] of [
+      ['QUOTE_EXPIRED', {expiresAt: new Date(Date.now() - 10000)}, 'COUPON_EXPIRED'],
+      ['QUOTE_FUTURE', {startsAt: new Date(Date.now() + 3600000)}, 'COUPON_NOT_STARTED'],
+      ['QUOTE_MIN', {minimumOrderHalalas: 50000}, 'COUPON_MINIMUM'],
+      ['QUOTE_INACTIVE', {isActive: false}, 'COUPON_INACTIVE'],
+    ] as const) {
+      await db.coupon.create({data: {code, kind: 'PERCENTAGE', percentageBasisPoints: 1000, ...extra}});
+      await expect(quoteCheckout(userId, {coupon: code})).rejects.toMatchObject({code: expected});
+    }
+    const scope = await db.coupon.create({data: {code: 'QUOTE_SCOPE', kind: 'PERCENTAGE', percentageBasisPoints: 1000}});
+    const other = await db.course.create({data: {key: 'quote-other', categoryId: (await db.course.findUniqueOrThrow({where: {id: courseId}})).categoryId, priceHalalas: 100, slug_ar: 'quote-other-ar', slug_en: 'quote-other-en'}});
+    await db.couponCourse.create({data: {couponId: scope.id, courseId: other.id}});
+    await expect(quoteCheckout(userId, {coupon: scope.code})).rejects.toMatchObject({code: 'COUPON_COURSES'});
+    const fixed = await db.coupon.create({data: {code: 'QUOTE_FIXED', kind: 'FIXED_AMOUNT', amountHalalas: 3000}});
+    expect(await quoteCheckout(userId, {coupon: fixed.code})).toMatchObject({discountHalalas: 3000, totalHalalas: 16900});
+  });
+  it('allows only one reservation when different customers order with a single-use coupon concurrently', async () => {
+    const db = getDatabase();
+    const coupon = await db.coupon.create({data: {code: 'GLOBAL_SINGLE_USE', kind: 'PERCENTAGE', percentageBasisPoints: 1000, usageLimit: 1, perUserLimit: 1}});
+    const users = await Promise.all([0, 1].map(() => db.user.create({data: {email: 'coupon-race-' + randomUUID() + '@example.test', emailVerified: new Date()}})));
+    await Promise.all(users.map(user => updateAccountCart(user.id, {action: 'merge', courseIds: [courseKey]})));
+    const results = await Promise.allSettled(users.map(user => createOrder(user.id, {locale: 'en', coupon: coupon.code, key: randomUUID()})));
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    const rejected = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({code: 'COUPON_LIMIT'});
+    expect(await db.couponReservation.count({where: {couponId: coupon.id, status: 'RESERVED'}})).toBe(1);
+  });
+  it('keeps every line nonnegative when a near-full discount is rounded across small prices', async () => {
+    const db = getDatabase();
+    const user = await db.user.create({data: {email: 'rounding-' + randomUUID() + '@example.test', emailVerified: new Date()}});
+    const categoryId = (await db.course.findUniqueOrThrow({where: {id: courseId}})).categoryId;
+    const courses = await Promise.all([0, 1, 2].map(i => db.course.create({data: {key: 'rounding-' + i, title_ar: 'اختبار التقريب', title_en: 'Rounding test', categoryId, priceHalalas: 1, status: 'PUBLISHED', slug_ar: 'rounding-ar-' + i, slug_en: 'rounding-en-' + i}})));
+    await db.coupon.create({data: {code: 'ROUNDING99', kind: 'PERCENTAGE', percentageBasisPoints: 9900}});
+    await updateAccountCart(user.id, {action: 'merge', courseIds: courses.map(course => course.key)});
+    const order = await createOrder(user.id, {locale: 'en', coupon: 'ROUNDING99', key: randomUUID()});
+    expect(order.totalHalalas).toBe(1);
+    expect(order.items.every(item => item.totalHalalas >= 0 && item.discountHalalas <= item.unitPriceHalalas)).toBe(true);
+    expect(order.items.reduce((sum, item) => sum + item.totalHalalas, 0)).toBe(order.totalHalalas);
+    expect(order.items.reduce((sum, item) => sum + item.discountHalalas, 0)).toBe(order.discountHalalas);
+  });
   it("creates one pending order under retries without granting access or calling online payments", async () => {
     const key = randomUUID(),
       orders = await Promise.all([
@@ -129,6 +185,8 @@ describe.skipIf(!configured)("MySQL checkout and learning invariants", () => {
     expect(orders[0].provider).toBe("manual");
     expect(orders[0].status).toBe("PENDING");
     expect(orders[0].totalHalalas).toBe(17910);
+    await expect(quoteCheckout(userId, {coupon: 'TEST10'})).rejects.toMatchObject({code: 'EMPTY_CART'});
+    await expect(getDatabase().$transaction(tx => checkoutCoupon(tx, userId, 'TEST10', [courseId], 19900))).rejects.toMatchObject({code: 'COUPON_LIMIT'});
     await expect(enrollmentFor(userId, courseId)).rejects.toMatchObject({
       status: 403,
     });

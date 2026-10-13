@@ -1,6 +1,6 @@
 'use client';
 
-import {useId, useRef, useState, useEffect} from 'react';
+import {useId, useRef, useState, useEffect, useSyncExternalStore} from 'react';
 import {useLocale} from 'next-intl';
 import Image from 'next/image';
 import {Upload, X, Save, ChevronDown} from 'lucide-react';
@@ -8,6 +8,11 @@ import {courseEntities, fieldLocale, contentFieldRequired} from '@/lib/course-co
 import {courseLanguages} from '@/lib/catalog';
 import {entities, adminValueLabel, type Field} from '@/lib/admin/registry';
 import {initialDraft, serializeDraft, slugFromTitle, uploadFields, parentFields, type AdminLookups, type AdminRow} from '@/lib/admin/forms';
+import {sarToHalalas} from '@/lib/money';
+import {CoursePrice, Price} from '@/components/ui/price';
+const subscribeToReady = () => () => {};
+const editorReady = () => true;
+const serverEditorReady = () => false;
 
 export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSaved, onRefreshLookups}: {
   entity: string; row: AdminRow; lookups: AdminLookups; parentValue: string;
@@ -18,6 +23,7 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
   const text = (arabic: string, english: string) => ar ? arabic : english;
   const config = entities[entity];
   const creating = !row[config.identity || 'id'];
+  const ready = useSyncExternalStore(subscribeToReady, editorReady, serverEditorReady);
   const [draft, setDraft] = useState(() => initialDraft(entity, row, parentValue));
   const owningParent = lookups[parentFields[entity]]?.find(item => item.id === draft[parentFields[entity]]);
   const languages = entity === 'courses' ? String(draft.languages || 'ar') : owningParent?.languages || 'ar,en';
@@ -29,9 +35,10 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
   const section = useRef<HTMLElement>(null);
   const id = useId();
   useEffect(() => {
+    if (!ready) return;
     section.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
     section.current?.querySelector<HTMLInputElement>('input:not([type="checkbox"]), select, textarea')?.focus({preventScroll: true});
-  }, []);
+  }, [ready]);
 
   function change(key: string, value: string | boolean) {
     setDraft(previous => {
@@ -93,10 +100,14 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
     'position', 'slug_ar', 'slug_en', 'seo_ar', 'seo_en',
     ...(['courses', 'categories', 'instructors', 'tags', 'faqs'].includes(entity) ? ['key'] : []),
   ]);
-  const visible = allowedFields.filter(field => !advanced.has(field.key)).sort((a, b) => Number(b.key === 'languages') - Number(a.key === 'languages'));
+  const visible = allowedFields.filter(field => !advanced.has(field.key) && !(entity === 'coupons' && (draft.kind === 'PERCENTAGE' ? field.key === 'amountHalalas' : ['percentageBasisPoints', 'maximumDiscountHalalas'].includes(field.key)))).sort((a, b) => Number(b.key === 'languages') - Number(a.key === 'languages'));
   const extra = allowedFields.filter(field => advanced.has(field.key));
+  let pricePreview: {amount: number; original: number | null} | null = null;
+  try {if (entity === 'courses') pricePreview = {amount: sarToHalalas(String(draft.priceHalalas || '0')), original: draft.compareAtHalalas ? sarToHalalas(String(draft.compareAtHalalas)) : null};} catch {}
+  let couponAmount = 0;
+  try {if (entity === 'coupons' && draft.kind === 'FIXED_AMOUNT') couponAmount = sarToHalalas(String(draft.amountHalalas || '0'));} catch {}
   const fieldView = (field: Field) => {
-    const required = field.required || (courseEntities.has(entity) && contentFieldRequired(entity, field.key, draft.kind));
+    const required = field.required || (courseEntities.has(entity) && contentFieldRequired(entity, field.key, draft.kind)) || (entity === 'coupons' && field.key === (draft.kind === 'PERCENTAGE' ? 'percentageBasisPoints' : 'amountHalalas'));
     const options = lookups[field.key];
     const value = draft[field.key];
     const fieldId = id + '-' + field.key;
@@ -119,7 +130,7 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
         id={fieldId} name={field.key} className="field" required={required}
         value={String(value ?? '')} onChange={event => change(field.key, event.target.value)}
         type={isNumber ? 'number' : field.type === 'date' ? 'datetime-local' : 'text'}
-        min={isNumber ? (['points', 'perUserLimit', 'timeLimitMinutes', 'maximumAttempts'].includes(field.key) ? 1 : 0) : undefined}
+        min={isNumber ? (['points', 'perUserLimit', 'usageLimit', 'timeLimitMinutes', 'maximumAttempts'].includes(field.key) ? 1 : entity === 'coupons' && ['amountHalalas', 'percentageBasisPoints', 'maximumDiscountHalalas'].includes(field.key) ? 0.01 : 0) : undefined}
         max={field.type === 'percentage' ? 100 : undefined}
         step={field.type === 'money' || field.type === 'percentage' ? '0.01' : isNumber ? '1' : undefined}
         inputMode={field.type === 'money' || field.type === 'percentage' ? 'decimal' : isNumber ? 'numeric' : undefined}
@@ -127,7 +138,10 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
         dir={fieldLocale(field.key) === 'ar' ? 'rtl' : fieldLocale(field.key) === 'en' || ['key', 'videoUrl', 'previewUrl', 'slug_en', 'languages'].includes(field.key) ? 'ltr' : undefined}
         aria-invalid={errors?.length ? true : undefined}
       />}
-      {errors?.length ? <p role="alert" className="mt-2 text-sm text-danger">{text('راجع هذا الحقل.', 'Check this field.')}</p> : null}
+      {errors?.length ? <p role="alert" className="mt-2 text-sm text-danger">{ar ? 'راجع هذا الحقل.' : errors.join(' ')}</p> : null}
+      {field.key === 'compareAtHalalas' && <p className="mt-2 text-sm text-muted">{text('اختياري: أدخل السعر الأصلي الحقيقي، ويجب أن يكون أعلى من السعر الحالي. اتركه فارغًا دون عرض.', 'Optional: enter the real original price, higher than the current price. Leave blank when there is no sale.')}</p>}
+      {field.key === 'code' && entity === 'coupons' && <p className="mt-2 text-sm text-muted">{text('حتى 40 حرفًا أو رقمًا دون مسافات. يُحفظ الرمز بأحرف كبيرة.', 'Up to 40 letters or numbers without spaces. Codes are saved in uppercase.')}</p>}
+      {entity === 'coupons' && ['usageLimit', 'maximumDiscountHalalas'].includes(field.key) && <p className="mt-2 text-sm text-muted">{text('اتركه فارغًا دون حد.', 'Leave blank for no limit.')}</p>}
       {field.key === 'isCorrect' && <p className="mt-2 text-sm text-muted">{text('اختيار هذه الإجابة يجعلها الإجابة الصحيحة الوحيدة للسؤال.', 'Selecting this answer makes it the question’s only correct answer.')}</p>}
       {options?.length === 0 && required && <p className="mt-2 text-sm text-muted">{text('لا توجد خيارات بعد. أنشئ السجل المرتبط أولًا.', 'No choices yet. Create the related item first.')}</p>}
       {uploadFields[field.key] && <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -147,13 +161,15 @@ export function AdminEditor({entity, row, lookups, parentValue, onCancel, onSave
       <button className="button-secondary shrink-0 p-3" type="button" aria-label={text('إغلاق المحرر', 'Close editor')} onClick={onCancel} disabled={busy}><X className="size-4" /></button>
     </div>
     <form onSubmit={save} className="p-5 sm:p-7" aria-labelledby={id + '-heading'}>
-      <fieldset disabled={busy} className="grid min-w-0 gap-5 md:grid-cols-2">{visible.map(fieldView)}</fieldset>
+      <fieldset disabled={busy || !ready} className="grid min-w-0 gap-5 md:grid-cols-2">{visible.map(fieldView)}</fieldset>
+      {pricePreview && <div className="mt-5 rounded-xl border border-line bg-canvas p-4"><p className="mb-3 text-sm text-muted">{text('معاينة السعر', 'Price preview')}</p><CoursePrice amount={pricePreview.amount} original={pricePreview.original} locale={ar ? 'ar' : 'en'} className="text-xl" /></div>}
+      {entity === 'coupons' && <div className="mt-5 rounded-xl border border-line bg-canvas p-4 text-sm"><p>{text('معاينة الخصم', 'Discount preview')}: <bdi>{String(draft.code || '').trim().toUpperCase() || text('رمزك', 'YOURCODE')}</bdi></p><p className="mt-2 font-semibold">{draft.kind === 'PERCENTAGE' ? `${String(draft.percentageBasisPoints || '0')}% ${text('خصم', 'off')}` : <Price amount={couponAmount} locale={ar ? 'ar' : 'en'} />}</p><p className="mt-2 text-muted">{text('يُطبق الرمز على الأسعار الحالية في السلة، بما فيها أسعار العروض. يظل التحقق من الحدود والتواريخ مطلوبًا عند الطلب.', 'The code discounts current cart prices, including sale prices. Usage limits and dates are checked at checkout.')}</p></div>}
       {extra.length > 0 && <details className="mt-6 rounded-xl border border-line p-4"><summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">{text('تفاصيل إضافية', 'More details')}<ChevronDown className="size-4" /></summary>
-        <fieldset disabled={busy} className="mt-5 grid min-w-0 gap-5 md:grid-cols-2">{extra.map(fieldView)}</fieldset>
+        <fieldset disabled={busy || !ready} className="mt-5 grid min-w-0 gap-5 md:grid-cols-2">{extra.map(fieldView)}</fieldset>
       </details>}
       {notice && <p role="status" className="mt-5 rounded-xl bg-successsoft p-3 text-sm text-success">{notice}</p>}
       {error && <p role="alert" className="mt-5 rounded-xl bg-dangersoft p-3 text-sm text-danger">{error}</p>}
-      <div className="mt-6 flex flex-wrap gap-3 border-t border-line pt-5"><button className="button-primary gap-2" disabled={busy}><Save className="size-4" aria-hidden="true" />{busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ', 'Save')}</button>
+      <div className="mt-6 flex flex-wrap gap-3 border-t border-line pt-5"><button className="button-primary gap-2" disabled={busy || !ready}><Save className="size-4" aria-hidden="true" />{!ready ? text('جارٍ تحميل المحرر…', 'Loading editor…') : busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ', 'Save')}</button>
         <button className="button-secondary" type="button" onClick={onCancel} disabled={busy}>{text('إلغاء', 'Cancel')}</button></div>
     </form>
   </section>;

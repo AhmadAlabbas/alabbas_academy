@@ -6,7 +6,7 @@ import {requireAdmin} from '@/lib/admin/service';
 import {getDatabase} from '@/lib/db';
 import {Link} from '@/i18n/navigation';
 import {adminValueLabel} from '@/lib/admin/registry';
-import {formatSAR} from '@/lib/money';
+import {Price} from "@/components/ui/price";
 
 export default async function CourseContentPage({params}: {params: Promise<{locale: string; courseId: string}>}) {
   await requireAdmin();
@@ -32,7 +32,7 @@ export default async function CourseContentPage({params}: {params: Promise<{loca
         <div className="min-w-0 flex-1"><span className="mb-3 inline-flex rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold">{adminValueLabel(course.status, ar)}</span>
           <h1 className="break-words text-3xl font-semibold">{title}</h1>
           <p className="mt-3 text-sm text-muted">{text('ابنِ محتوى الدورة: أقسام، دروس، ملفات، واختبارات.', 'Build your course with sections, lessons, files and exams.')}</p>
-          <p className="mt-3 font-semibold text-accent">{formatSAR(course.priceHalalas, ar ? 'ar' : 'en')}</p>
+          <p className="mt-3 font-semibold text-accent"><Price amount={course.priceHalalas} locale={ar ? 'ar' : 'en'} /></p>
         </div>
         <div className="flex flex-wrap gap-3"><Link className="button-primary gap-2" href={`/admin/courses?edit=${course.id}`}><Pencil className="size-4" aria-hidden="true" />{text('تعديل تفاصيل الدورة', 'Edit course details')}</Link>
           {course.status === 'PUBLISHED' && <Link href={`/courses/${contentLocale(course.languages, locale) === 'ar' ? course.slug_ar : course.slug_en}`} locale={contentLocale(course.languages, locale)} className="button-secondary gap-2">{text('عرض صفحة الدورة', 'View course page')}<ArrowUpRight className="size-4 logical-arrow" aria-hidden="true" /></Link>}

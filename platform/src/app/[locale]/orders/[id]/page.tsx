@@ -1,7 +1,7 @@
 import { requireVerifiedUser } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
-import { formatSAR } from "@/lib/money";
+import {Price} from "@/components/ui/price";
 import { Link } from "@/i18n/navigation";
 import { gatewayConfigured } from "@/lib/commerce/providers";
 import { PaymentForm } from "@/components/platform/payment-form";
@@ -47,20 +47,24 @@ export default async function Page({
                 : "Order pending"}
         </h2>
         {order.items.map((i) => (
-          <div className="flex justify-between gap-4" key={i.id}>
+          <div className="flex flex-wrap justify-between gap-4" key={i.id}>
             <span>{ar ? i.titleAr : i.titleEn}</span>
-            <b>{formatSAR(i.totalHalalas, ar ? "ar" : "en")}</b>
+            <b><Price amount={i.unitPriceHalalas} locale={ar ? "ar" : "en"} /></b>
           </div>
         ))}
+        <p className="flex flex-wrap justify-between gap-2">
+          <span>{ar ? 'المجموع قبل خصم الرمز' : 'Subtotal before coupon'}</span>
+          <Price amount={order.subtotalHalalas} locale={ar ? 'ar' : 'en'} />
+        </p>
         {order.discountHalalas > 0 && (
           <p>
             {ar ? "الخصم" : "Discount"}:{" "}
-            {formatSAR(order.discountHalalas, ar ? "ar" : "en")}
+            − <Price amount={order.discountHalalas} locale={ar ? "ar" : "en"} />
           </p>
         )}
         <p className="border-t border-line pt-5 text-xl font-semibold">
           {ar ? "الإجمالي" : "Total"}:{" "}
-          {formatSAR(order.totalHalalas, ar ? "ar" : "en")}
+          <Price amount={order.totalHalalas} locale={ar ? "ar" : "en"} />
         </p>
         {order.status === "PENDING" &&
           (order.provider === "manual" ||

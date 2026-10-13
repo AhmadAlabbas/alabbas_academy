@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, RefreshCw, ShieldCheck, ShoppingBag, Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import { formatSAR } from '@/lib/money';
+import {Price, CoursePrice} from "@/components/ui/price";
 import { CourseCover } from '@/components/ui/course-cover';
 import { useCart } from './cart-provider';
 
@@ -34,7 +34,7 @@ export function CartPage() {
           <div className="w-full shrink-0 overflow-hidden rounded-xl sm:w-36"><CourseCover cover={item.cover} /></div>
           <div className="min-w-0 flex-1"><p className="mb-2 text-xs font-medium text-accent">{t('courseLabel')}</p>
             <Link href={`/courses/${item.slug[locale] || item.slug[locale === 'ar' ? 'en' : 'ar']}`} locale={item.slug[locale] ? locale : locale === 'ar' ? 'en' : 'ar'} className="block text-lg font-semibold leading-8 text-ink hover:underline">{item.title[locale]}</Link>
-            <p className="mt-2 text-lg font-semibold tabular-nums">{formatSAR(item.priceHalalas, locale)}</p>
+            <p className="mt-2 text-lg font-semibold tabular-nums"><CoursePrice amount={item.priceHalalas} original={item.compareAtHalalas} locale={locale} /></p>
             <button type="button" disabled={loading} onClick={() => { void remove(item.courseId); }} aria-label={t('removeLabel', { title: item.title[locale] })}
               className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-muted hover:bg-dangersoft hover:text-danger disabled:opacity-50"><Trash2 className="size-4" aria-hidden="true" />{t('remove')}</button>
           </div>
@@ -42,7 +42,7 @@ export function CartPage() {
       </ul>
       <aside className="card p-6 lg:sticky lg:top-28" aria-label={t('summary')}>
         <h2 className="mb-6 text-xl font-semibold">{t('summary')}</h2>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 text-sm"><span className="text-muted">{t('subtotal')}</span><span className="text-xl font-semibold tabular-nums">{formatSAR(subtotalHalalas, locale)}</span></div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 text-sm"><span className="text-muted">{t('subtotal')}</span><span className="text-xl font-semibold tabular-nums"><Price amount={subtotalHalalas} locale={locale} /></span></div>
         <p className="border-t border-line pt-4 text-xs leading-6 text-muted">{user ? t('authoritativePrices') : t('guestPrices')}</p>
         {!user ? <div className="mt-6"><p className="mb-4 text-sm leading-7 text-muted">{t('guestNotice')}</p><Link href={`/login?callbackUrl=${encodeURIComponent(`/${locale}/cart`)}`} className="button-primary flex min-h-12 items-center justify-center">{t('loginToSave')}</Link><Link href={`/signup?callbackUrl=${encodeURIComponent(`/${locale}/cart`)}`} className="mt-3 flex min-h-11 items-center justify-center text-sm font-medium text-accent underline underline-offset-4">{t('createAccount')}</Link></div> : !user.emailVerified ? <div className="mt-6 rounded-xl bg-goldsoft p-4"><p className="mb-3 text-sm leading-7">{t('verificationNotice')}</p><Link href="/account" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium underline underline-offset-4"><ShieldCheck className="size-4" aria-hidden="true" />{t('verifyAccount')}</Link></div> : <Link href="/checkout" className="button-primary mt-6 flex min-h-12 items-center justify-center">{locale === "ar" ? "إتمام الطلب" : "Checkout"}</Link>}
         <p className="mt-5 text-xs leading-6 text-muted">{t('noEnrollment')}</p>

@@ -12,7 +12,7 @@ import {AdminEditor} from './admin-editor';
 import {CourseTestDelete} from './course-test-delete';
 import {AdminActionPicker, type ChoiceAction} from './admin-action-picker';
 import {parentFields, recordTitle, type AdminLookups} from '@/lib/admin/forms';
-import {formatSAR} from '@/lib/money';
+import {Price} from "@/components/ui/price";
 type Row = Record<string, unknown>;
 export function AdminPanel({
   entity,
@@ -204,7 +204,11 @@ export function AdminPanel({
                 <td className="max-w-64 break-words p-4">
                   <b>{recordTitle(row, ar)}</b>
                   {Boolean(row[parentField]) && <p className="mt-2 text-xs text-muted">{(() => {const parent = lookupChoices[parentField]?.find(item => item.id === row[parentField]); return parent ? (ar ? parent.title_ar : parent.title_en) : '';})()}</p>}
-                  {entity === 'courses' && <p className="mt-2 text-sm text-accent">{formatSAR(Number(row.priceHalalas || 0), ar ? 'ar' : 'en')}</p>}
+                  {entity === 'courses' && <p className="mt-2 text-sm text-accent"><Price amount={Number(row.priceHalalas || 0)} locale={ar ? 'ar' : 'en'} /></p>}
+                  {entity === 'coupons' && <div className="mt-2 space-y-1 text-sm">
+                    <p className="font-medium text-accent">{row.kind === 'PERCENTAGE' ? `${new Intl.NumberFormat(ar ? 'ar-SA' : 'en-SA').format(Number(row.percentageBasisPoints || 0) / 100)}% ${label('خصم', 'off')}` : <Price amount={Number(row.amountHalalas || 0)} locale={ar ? 'ar' : 'en'} />}</p>
+                    <p className="text-xs text-muted">{row.isActive ? label('نشط', 'Active') : label('غير نشط', 'Inactive')} · {label('لكل عميل: ', 'Per customer: ')}{String(row.perUserLimit)}</p>
+                  </div>}
                 </td>
                 <td className="max-w-lg p-4">
                   <details>

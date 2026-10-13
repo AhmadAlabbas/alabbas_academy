@@ -1,5 +1,15 @@
 # Alabbas Academy — Hostinger Node.js platform
 
+## Sale prices and coupon codes
+
+In the course editor, enter the current selling price and optionally a higher **Previous price**. The preview shows the original price, exact savings and discount badge. Leave the previous price blank when there is no sale. Prices across the site use the 2025 Saudi riyal symbol, with accessible Arabic/English currency names; database, gateway and structured-data currency codes remain `SAR`.
+
+Under **Coupons**, choose Percentage or Fixed amount and enter the relevant positive value. Codes are trimmed and saved in uppercase (up to 40 letters/numbers, hyphens or underscores). Minimum order defaults to zero; blank usage limits/caps mean no overall limit. Set dates, activation and per-customer uses as needed. Codes discount the current cart prices, including sale prices. A course-scoped existing code requires every cart course to be eligible.
+
+At checkout, **Apply coupon** displays the discount and final total before ordering; **Remove code** clears it. Invalid, expired, future, minimum-order and exhausted codes have specific feedback. Previewing does not create an order or reserve a use. Order creation rechecks prices and coupon availability and uses exact halala arithmetic. Payments remain controlled by the existing configuration. Zero-total orders use manual enrollment confirmation.
+
+The locally bundled SVG is distributed by [abdulrysrr/new-saudi-riyal-symbol](https://github.com/abdulrysrr/new-saudi-riyal-symbol/tree/6248840d3be2d4b7aac4183ac3763f97e2470d77), with its MIT notice in `public/saudi-riyal-LICENSE.txt`. The artwork is unmodified; SHA-256: `dc035ad6d18c543a79d7e2f24458ab17b869c030875dc2f1d18f2fa9dda9e404`. It uses a scalable CSS mask so both themes work without relying on a device font containing the new currency glyph. This is a distribution mirror, not an official Central Bank repository.
+
 Arabic-first `/ar`, English `/en`; navy, sky blue and gold cards. Next.js standalone, Auth.js, Prisma **MySQL/MariaDB**, SMTP, persistent private uploads. No Docker, Redis, worker service or cron is required. The historical PHP website stays on the `hostinger` branch. This platform belongs on a **Node.js Web App**, never in PHP `public_html`.
 
 ## Working features

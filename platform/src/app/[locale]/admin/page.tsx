@@ -2,7 +2,7 @@ import { getDatabase } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/service";
 import { entities } from "@/lib/admin/registry";
 import { Link } from "@/i18n/navigation";
-import { formatSAR } from "@/lib/money";
+import {Price} from '@/components/ui/price';
 function currentTime() {
   return Date.now();
 }
@@ -54,12 +54,12 @@ export default async function Page({
           [ar ? "طلبات تنتظر التأكيد" : "Pending orders", pending],
           [
             ar ? "الإيرادات المؤكدة" : "Confirmed revenue",
-            formatSAR(revenue._sum.totalHalalas ?? 0, ar ? "ar" : "en"),
+            revenue._sum.totalHalalas ?? 0,
           ],
-        ].map(([label, value]) => (
+        ].map(([label, value], index) => (
           <div className="card p-6" key={label}>
             <p className="text-sm text-muted">{label}</p>
-            <b className="mt-4 block text-3xl">{value}</b>
+            <b className="mt-4 block text-3xl">{index === 3 ? <Price amount={Number(value)} locale={ar ? 'ar' : 'en'} /> : value}</b>
           </div>
         ))}
       </div>

@@ -97,16 +97,17 @@ describe.skipIf(!configured)('Admin course content editing', () => {
   });
   it('filters complete course language codes before counting and paginating admin results', async () => {
     const db = getDatabase();
+    const fixtureQuery = (await db.course.findUniqueOrThrow({where: {id: courseId}, select: {key: true}})).key.slice('builder-'.length);
     await db.course.update({where: {id: courseId}, data: {languages: 'ar'}});
     await db.course.update({where: {id: secondCourseId}, data: {languages: 'en'}});
-    const arabic = await listAdmin('courses', new URLSearchParams({language: 'ar'}));
-    const english = await listAdmin('courses', new URLSearchParams({language: 'en'}));
+    const arabic = await listAdmin('courses', new URLSearchParams({language: 'ar', q: fixtureQuery}));
+    const english = await listAdmin('courses', new URLSearchParams({language: 'en', q: fixtureQuery}));
     expect(arabic.total).toBe(1); expect((arabic.rows as AdminRow[]).map(row => row.id)).toEqual([courseId]);
     expect(english.total).toBe(1); expect((english.rows as AdminRow[]).map(row => row.id)).toEqual([secondCourseId]);
     await db.course.update({where: {id: courseId}, data: {languages: ' AR , en '}});
     expect((await listAdmin('courses', new URLSearchParams({language: 'en', q: 'Editor course'}))).total).toBe(1);
     await db.course.update({where: {id: secondCourseId}, data: {languages: 'french'}});
-    expect((await listAdmin('courses', new URLSearchParams({language: 'en'}))).total).toBe(1);
+    expect((await listAdmin('courses', new URLSearchParams({language: 'en', q: fixtureQuery}))).total).toBe(1);
   });
   it('authors Arabic-only and English-only curricula without requiring translations', async () => {
     for (const language of ['ar', 'en']) {

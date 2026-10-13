@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { getDatabase } from "@/lib/db";
 import { pageMetadata, siteOrigin } from "@/lib/seo";
-import { formatSAR } from "@/lib/money";
+import {CoursePrice} from '@/components/ui/price';
 import { Link } from "@/i18n/navigation";
 import { AddToCartButton, BuyNowButton } from "@/components/cart/cart-controls";
 import { Video } from "@/components/platform/player";
@@ -249,14 +249,8 @@ export default async function Page({
             <CourseCover cover={course.coverStyle as "design"} />
           )}
           <h2 className="text-3xl font-semibold">
-            {formatSAR(course.priceHalalas, locale)}
+            <CoursePrice amount={course.priceHalalas} original={course.compareAtHalalas} locale={locale} className="text-3xl" />
           </h2>
-          {course.compareAtHalalas &&
-            course.compareAtHalalas > course.priceHalalas && (
-              <del className="text-muted">
-                {formatSAR(course.compareAtHalalas, locale)}
-              </del>
-            )}
           <AddToCartButton courseId={course.key} className="w-full" />
           <BuyNowButton courseId={course.key} />
           <p className="text-sm leading-7 text-muted">

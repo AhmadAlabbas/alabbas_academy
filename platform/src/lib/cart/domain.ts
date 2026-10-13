@@ -8,6 +8,7 @@ export type CartItem = {
   slug: { ar: string; en: string };
   cover: 'design' | 'code' | 'business' | 'photo';
   priceHalalas: number;
+  compareAtHalalas?: number | null;
 };
 export type CartSummary = {
   items: CartItem[];
