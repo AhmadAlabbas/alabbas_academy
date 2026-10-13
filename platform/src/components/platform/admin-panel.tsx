@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/registry";
 import { Link } from "@/i18n/navigation";
 import {AdminEditor} from './admin-editor';
+import {CourseTestDelete} from './course-test-delete';
 import {AdminActionPicker, type ChoiceAction} from './admin-action-picker';
 import {parentFields, recordTitle, type AdminLookups} from '@/lib/admin/forms';
 import {formatSAR} from '@/lib/money';
@@ -45,6 +46,7 @@ export function AdminPanel({
     [lookupChoices, setLookupChoices] = useState(lookups),
     [parentValue, setParentValue] = useState(initialParent),
     [picker, setPicker] = useState<ChoiceAction | null>(null),
+    [testDeleteId, setTestDeleteId] = useState<string | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const parentField = parentFields[entity];
@@ -117,6 +119,9 @@ export function AdminPanel({
       </div>
       {courseId && <Link href={`/admin/courses/${courseId}`} className="button-secondary inline-flex">{label('العودة إلى محتوى الدورة', 'Back to course content')}</Link>}
       {picker && <AdminActionPicker selection={picker} lookups={lookupChoices} onClose={() => setPicker(null)} onSubmit={action} />}
+      {testDeleteId && <CourseTestDelete key={testDeleteId} courseId={testDeleteId} onClose={() => setTestDeleteId(null)} onDeleted={async () => {
+        setTestDeleteId(null); await reload(); setMessage(label('تم حذف الدورة وبيانات الاختبار. حسابات الطلاب محفوظة.', 'Course and test data deleted. Student accounts were kept.'));
+      }} />}
       <div className="card flex flex-wrap gap-3 p-4">
         {entity === 'courses' && <label className="min-w-0">
           {label('لغة محتوى الدورة', 'Course content language')}
@@ -268,6 +273,7 @@ export function AdminPanel({
                             {label("حذف", "Delete")}
                           </button>
                         )}
+                        {entity === 'courses' && row.status === 'ARCHIVED' && <button className="button-secondary text-danger" disabled={busy} onClick={() => setTestDeleteId(String(row.id))}>{label('حذف دورة الاختبار', 'Delete test course')}</button>}
                       </>
                     )}
                     {entity === "orders" &&
