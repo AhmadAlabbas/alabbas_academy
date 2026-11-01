@@ -280,3 +280,6 @@ html[dir=rtl] .code-studio-banner>button svg{transform:scaleX(-1)}
  .code-workspace-footer{padding:12px}
 }
 @media(prefers-reduced-motion:reduce){.code-app *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.code-signin{margin-top:14px;display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:12px;color:#155b43;border:1px solid #a3d8be;background:#d4f1e2;border-radius:10px;padding:10px 13px}
+.code-signin:hover{background:#c1e8d5}
