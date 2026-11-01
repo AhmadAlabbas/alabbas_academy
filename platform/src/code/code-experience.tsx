@@ -160,14 +160,17 @@ export function CodeExperience({locale, initialLesson}: {locale: CodeLocale; ini
   },[locale]);
 
   useEffect(()=>{
+    let cancelled=false;
     const requested=new URLSearchParams(location.search).get('lesson')||initialLesson;
-    if(requested && lessonMap.has(requested))openLesson(requested,false);
+    if(requested && lessonMap.has(requested)){
+      void Promise.resolve().then(()=>{if(!cancelled)openLesson(requested,false);});
+    }
     function onBack(){
       const id=new URLSearchParams(location.search).get('lesson');
       if(id && lessonMap.has(id))openLesson(id,false);else closeLesson(false);
     }
     window.addEventListener('popstate',onBack);
-    return ()=>window.removeEventListener('popstate',onBack);
+    return ()=>{cancelled=true;window.removeEventListener('popstate',onBack);};
   },[openLesson,closeLesson,initialLesson]);
 
   useEffect(()=>{
@@ -178,7 +181,9 @@ export function CodeExperience({locale, initialLesson}: {locale: CodeLocale; ini
       const decoded:unknown=raw && JSON.parse(raw);
       if(Array.isArray(decoded))guest=decoded.filter((id):id is string=>typeof id==='string'&&lessonMap.has(id));
     }catch{/* unavailability must not break learning */}
-    setCompleted(guest);setProgressReady(true);
+    void Promise.resolve().then(()=>{
+      if(!cancelled){setCompleted(guest);setProgressReady(true);}
+    });
     fetch('/api/code/progress',{cache:'no-store'})
       .then(async response=>response.ok?await response.json():null)
       .then(async data=>{
@@ -355,7 +360,7 @@ export function CodeExperience({locale, initialLesson}: {locale: CodeLocale; ini
               onClick={()=>openLesson(lessons.find(item=>!completed.includes(item.id))?.id||lessons[0].id)}>
               {t.continue}<ArrowRight size={16}/></button>
           </div>
-          <div className="code-guide-panel"><div className="code-guide-icon"><Lightbulb size={24}/></div><div><small>{t.help}</small><p>{t.how}</p></div></div>
+          <div className="code-guide-panel"><div className="code-guide-icon"><Lightbulb size={24}/></div><div><small>{t.help}</small><p>{t.how}</p>{!authenticated&&<a className="code-signin" href={signInHref}>{t.signIn}<ArrowRight size={15}/></a>}</div></div>
         </div>
       </section>
       <section className="code-main-section code-lesson-list">
