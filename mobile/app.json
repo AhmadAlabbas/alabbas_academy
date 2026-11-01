@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ALABBAS Academy",
+    "slug": "alabbas-academy",
+    "version": "0.1.0",
+    "scheme": "alabbasacademy",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.alabbas.academy",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.alabbas.academy",
+      "permissions": [],
+      "edgeToEdgeEnabled": true
+    },
+    "extra": {
+      "apiOrigin": "https://alabbasacademy.com"
+    }
+  }
+}
