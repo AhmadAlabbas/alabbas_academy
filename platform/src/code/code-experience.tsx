@@ -1,9 +1,9 @@
 'use client';
 
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent} from 'react';
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight,
-  CircleHelp, CirclePlay, Code2, Copy, ExternalLink, FileCode2, Globe2, Lightbulb,
+  CircleHelp, Code2, ExternalLink, Globe2, Lightbulb,
   ListChecks, LockKeyhole, Menu, PanelRight, Play, RotateCcw, Search, Sparkles,
   Terminal, Trophy, X,
 } from 'lucide-react';
@@ -151,7 +151,7 @@ export function CodeExperience({locale, initialLesson}: {locale: CodeLocale; ini
     const nextRun=runRef.current+1;
     runRef.current=nextRun;setRunId(nextRun);setPreviewHtml(previewDocument(draft,nextRun));
     if(updateUrl)history.pushState({lesson:id},'',`/code/${locale}?lesson=${encodeURIComponent(id)}`);
-    window.scrollTo({top:0,behavior:'instant'});
+    window.scrollTo({top:0,behavior:'auto'});
   },[locale]);
 
   const closeLesson=useCallback((updateUrl=true)=>{
@@ -269,7 +269,7 @@ export function CodeExperience({locale, initialLesson}: {locale: CodeLocale; ini
     runRef.current+=1;setRunId(runRef.current);
     setPreviewHtml(previewDocument(draft,runRef.current));setLogs([]);
   }
-  function editKeyDown(event:React.KeyboardEvent<HTMLTextAreaElement>){
+  function editKeyDown(event:KeyboardEvent<HTMLTextAreaElement>){
     if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){
       event.preventDefault();
       if(event.shiftKey)void check();else run();
