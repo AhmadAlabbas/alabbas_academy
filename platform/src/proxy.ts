@@ -10,7 +10,13 @@ export default function proxy(request: NextRequest) {
   const pathLocale = pathname.split('/')[1];
 
   // ALABBAS Code uses its own /code/{locale} layout, not Academy's /{locale} routing.
-  if (pathname === '/code' || pathname.startsWith('/code/')) return NextResponse.next();
+  if (pathname === '/code') {
+    const stored = request.cookies.get('ALABBAS_LOCALE')?.value === 'en' ? 'en' : 'ar';
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/code/${stored}`;
+    return NextResponse.redirect(redirectUrl);
+  }
+  if (pathname.startsWith('/code/')) return NextResponse.next();
 
   // A fresh visitor starts in Arabic. An explicitly selected language is
   // retained by the locale cookie, independently of browser preferences.
