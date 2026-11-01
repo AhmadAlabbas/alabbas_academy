@@ -31,6 +31,8 @@ jobs:
           node-version: '22.18.0'
       - name: Install pinned dependencies
         run: npm ci --no-audit --no-fund
+      - name: Generate Prisma types
+        run: npm run db:generate
       - name: Verify curriculum unit tests
         run: npx vitest run tests/code-lab.test.ts
       - name: Typecheck all application routes
