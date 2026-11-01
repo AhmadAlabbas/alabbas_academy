@@ -96,7 +96,7 @@ export const lessons: Lesson[] = [
     task:t('Add an image with a valid src attribute and useful alt text describing the image.','أضف صورة لها src ونص alt واضح يصف محتواها.'),
     hint:t('Start with <img src="..." alt="...">. For this exercise, you may use a public HTTPS image URL.','استخدم <img src="..." alt="..."> مع رابط صورة HTTPS عام.'),
     starter:html('<main>\n  <h1>My gallery</h1>\n  <!-- Add an accessible image -->\n</main>'),
-    checks:[h(t('You added an image','أضفت صورة'),'img[src]'),
+    checks:[h(t('You added an image','أضفت صورة'),'img[src]:not([src=""])'),
             h(t('You included alternative text','أضفت وصفًا بديلًا'),'img[alt]:not([alt=""])')],
   },
   {
@@ -175,7 +175,7 @@ export const lessons: Lesson[] = [
       '// Build a greeting function\n'),
     checks:[j(t('Declare the greet function','عرّف الدالة greet'),'function\\s+greet\\s*\\('),
             j(t('Return a result','أعد نتيجة باستخدام return'),'\\breturn\\b'),
-            j(t('Call greet','استدعِ الدالة greet'),'greet\\s*\\(')],
+            j(t('Call greet and log the result','استدعِ greet واطبع النتيجة'),'console\\s*\\.\\s*log\\s*\\(\\s*greet\\s*\\(')],
   },
   {
     id:'js-conditions', track:'javascript',
