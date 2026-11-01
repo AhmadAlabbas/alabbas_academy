@@ -36,17 +36,17 @@
     "clsx": "2.1.1",
     "lucide-react": "1.55.0",
     "moyasar-payment-form": "2.3.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "next-auth": "5.0.0-beta.32",
     "next-intl": "4.14.9",
-    "nodemailer": "10.1.0",
+    "nodemailer": "10.1.4",
     "pdfkit": "0.20.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.89.0",
     "server-only": "0.0.1",
     "tailwind-merge": "3.7.0",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@formatjs/icu-messageformat-parser": "3.5.21",
@@ -70,7 +70,8 @@
     "nodemailer": "$nodemailer",
     "mariadb": "3.5.4",
     "mysql2": "3.24.5",
-    "deepmerge-ts": "8.0.2"
+    "deepmerge-ts": "8.0.2",
+    "fast-uri": "3.1.9"
   },
   "type": "module"
 }

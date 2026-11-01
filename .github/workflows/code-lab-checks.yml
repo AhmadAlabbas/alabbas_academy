@@ -1,0 +1,41 @@
+name: ALABBAS Code compile checks
+on:
+  push:
+    paths:
+      - 'platform/src/code/**'
+      - 'platform/src/app/code/**'
+      - 'platform/src/app/api/code/**'
+      - 'platform/prisma/**'
+      - 'platform/tests/code-lab.test.ts'
+      - '.github/workflows/code-lab-checks.yml'
+  pull_request:
+    paths:
+      - 'platform/src/code/**'
+      - 'platform/src/app/code/**'
+      - 'platform/src/app/api/code/**'
+      - 'platform/prisma/**'
+      - 'platform/tests/code-lab.test.ts'
+      - '.github/workflows/code-lab-checks.yml'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate Prisma types
+        run: npm run db:generate
+      - name: Verify curriculum unit tests
+        run: npx vitest run tests/code-lab.test.ts
+      - name: Typecheck all application routes
+        run: npm run typecheck
+      - name: Build standalone Next.js app
+        run: npm run build
