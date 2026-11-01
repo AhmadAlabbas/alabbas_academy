@@ -62,11 +62,11 @@ export function previewDocument(files: Files, runId: number): string {
   };
   // Do not allow student CSS to break out of the <style> element.
   const css = bounded.css.replace(/<\/style/gi, '<\\/style');
-  // Encode student script as a JS string (never concatenate into executable source).
+  // Encode student code as a JS string; insert it as a sandboxed script element without eval().
   const script = JSON.stringify(bounded.js).replace(/</g, '\\u003c');
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'; img-src data: https:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'; img-src data: https:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>*,*::before,*::after{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:24px;color:#152238}img{max-width:100%} ${css}</style>
 </head><body>${bounded.html}
@@ -74,9 +74,18 @@ export function previewDocument(files: Files, runId: number): string {
 (function(){
 var id=${runId};
 function report(kind,value){try{parent.postMessage({academyCodePreview:true,runId:id,kind:kind,value:String(value).slice(0,700)},'*')}catch(e){}}
-var printable=Array.prototype.map;
-var safeConsole={log:function(){report('log',Array.from(arguments).map(function(x){try{return typeof x==='object'?JSON.stringify(x):String(x)}catch(e){return '[object]'}}).join(' '))},warn:function(){report('warn',Array.from(arguments).join(' '))},error:function(){report('error',Array.from(arguments).join(' '))}};
-try{new Function('console',${script})(safeConsole);report('ready','')}catch(e){report('error',e&&e.message?e.message:e)}
+function format(x){try{return typeof x==='object'?JSON.stringify(x):String(x)}catch(e){return '[object]'}}
+['log','warn','error'].forEach(function(kind){
+  console[kind]=function(){report(kind,Array.from(arguments).map(format).join(' '))}
+});
+window.addEventListener('error',function(e){report('error',e.message||'JavaScript error')});
+window.addEventListener('unhandledrejection',function(e){report('error',e.reason&&e.reason.message?e.reason.message:e.reason||'Promise rejected')});
+try{
+  var student=document.createElement('script');
+  student.textContent=${script};
+  document.body.appendChild(student);
+  report('ready','');
+}catch(e){report('error',e&&e.message?e.message:e)}
 })();
 </script>
 </body></html>`;
