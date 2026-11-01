@@ -35,6 +35,7 @@ model User {
   reviews            Review[]
   auditLogs          AuditLog[]
   uploadedAssets     MediaAsset[]
+  codeProgress       CodeProgress[]
 
   @@map("users")
 }
@@ -1094,4 +1095,17 @@ model ContactMessage {
  createdAt DateTime @default(now())
  @@index([status,createdAt])
  @@map("contact_messages")
+}
+
+// Formative coding-lab progress is separate from paid-course enrollments.
+// Client-checked exercises never grant paid access or accredited certificates.
+model CodeProgress {
+  userId      String   @db.VarChar(191)
+  lessonId    String   @db.VarChar(100)
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lessonId])
+  @@index([completedAt])
+  @@map("code_lesson_progress")
 }
