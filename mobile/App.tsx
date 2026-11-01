@@ -246,7 +246,7 @@ function AppRoot() {
       {!list.length && <Text style={[styles.emptyText, {textAlign: alignment}]}>
         {t.noSaved} {t.saveHint}
       </Text>}
-      <CourseList list={list}/>
+      {Boolean(list.length) && <CourseList list={list}/>}
     </>;
   }
   function Account() {
@@ -275,12 +275,12 @@ function AppRoot() {
     {offline && <Pressable onPress={() => void refresh()} style={styles.offlineBar}>
       <Text style={styles.offlineText}>{catalog.courses.length ? t.offline : t.unavailable}  ↻</Text>
     </Pressable>}
-    {selected ? <CourseDetail/> :
+    {selected ? CourseDetail() :
       <ScrollView key={tab} keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={BLUE}/>}
         contentContainerStyle={styles.content}>
-        {tab === 'home' ? <Home/> : tab === 'courses' ? <Browse/> :
-          tab === 'saved' ? <Saved/> : <Account/>}
+        {tab === 'home' ? Home() : tab === 'courses' ? Browse() :
+          tab === 'saved' ? Saved() : Account()}
       </ScrollView>}
     {!selected && <View style={styles.tabbar}>
       {(['home', 'courses', 'saved', 'account'] as Tab[]).map((item, index) => (
