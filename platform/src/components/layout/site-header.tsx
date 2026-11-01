@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import {Menu, X} from 'lucide-react';
-import {useTranslations} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import {useEffect, useRef, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
 import type {Locale} from '@/i18n/routing';
@@ -25,6 +25,7 @@ type SiteHeaderProps = {
 
 export function SiteHeader({courseSlugs,logo='/logo.svg',academyName}: SiteHeaderProps) {
   const t = useTranslations('Header');
+  const locale = useLocale();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -92,6 +93,7 @@ export function SiteHeader({courseSlugs,logo='/logo.svg',academyName}: SiteHeade
               {t(route.label)}
             </Link>
           ))}
+          <a href={`/code/${locale}`} className="rounded-xl bg-[#e4f6ee] px-3 py-2 text-sm font-bold text-[#175a44] hover:bg-[#cdebdc]">{locale === 'ar' ? 'تعلّم البرمجة' : 'Learn to code'}</a>
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -131,6 +133,7 @@ export function SiteHeader({courseSlugs,logo='/logo.svg',academyName}: SiteHeade
                 {t(route.label)}
               </Link>
             ))}
+            <a href={`/code/${locale}`} onClick={() => setIsOpen(false)} className="rounded-xl bg-[#e4f6ee] px-4 py-3 text-base font-bold text-[#175a44]">{locale === 'ar' ? 'تعلّم البرمجة' : 'Learn to code'}</a>
             <Link href="/cart" onClick={() => setIsOpen(false)} className="rounded-xl px-4 py-3 text-base font-semibold text-[var(--muted)] hover:bg-[var(--surface)]">{t('cart')}</Link>
             <AccountNavigation mobile onNavigate={() => setIsOpen(false)} />
           </nav>
