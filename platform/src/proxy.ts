@@ -9,6 +9,9 @@ export default function proxy(request: NextRequest) {
   const {pathname} = request.nextUrl;
   const pathLocale = pathname.split('/')[1];
 
+  // ALABBAS Code uses its own /code/{locale} layout, not Academy's /{locale} routing.
+  if (pathname === '/code' || pathname.startsWith('/code/')) return NextResponse.next();
+
   // A fresh visitor starts in Arabic. An explicitly selected language is
   // retained by the locale cookie, independently of browser preferences.
   if (!hasLocale(routing.locales, pathLocale)) {
