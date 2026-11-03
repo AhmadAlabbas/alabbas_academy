@@ -40,6 +40,24 @@ export async function SiteFooter() {
         </div>
       </div>
 
+      <div className="border-t border-white/10 bg-[#111111]">
+        <div className="container-shell py-6">
+          <ul dir="ltr" aria-label={ar ? 'شعارات وسائل الدفع' : 'Payment method logos'} className="flex flex-wrap items-center justify-center gap-3">
+            {[
+              {name: 'mada', src: '/payments/mada.svg'},
+              {name: 'Visa', src: '/payments/visa.svg'},
+              {name: 'Mastercard', src: '/payments/mastercard.svg'},
+              {name: 'Apple Pay', src: '/payments/apple-pay.svg'},
+              {name: 'Samsung Pay', src: '/payments/samsung-pay.svg'},
+            ].map(({name, src}) => (
+              <li key={name} className="flex h-16 w-[105px] shrink-0 items-center justify-center rounded-md bg-white p-2">
+                <Image unoptimized src={src} alt={name} width={82} height={48} className="h-12 w-[82px] object-contain" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
       <div className="container-shell flex flex-col gap-3 border-t border-[var(--line)] py-6 text-xs text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
         <p>{new Date().getFullYear()} © {String(settings[`name_${locale}`]||t('academy'))}</p><div className="flex flex-wrap gap-4"><Link href="/privacy">{ar?'الخصوصية':'Privacy'}</Link><Link href="/terms">{ar?'الشروط':'Terms'}</Link><Link href="/refund-policy">{ar?'الاسترداد':'Refund policy'}</Link></div>
         <p className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" aria-hidden="true" />{t('location')}</p>
